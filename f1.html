@@ -1,0 +1,1212 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>F1 Dashboard</title>
+<style>
+  :root {
+    --red: #e10600;
+    --red-dark: #a80400;
+    --bg: #0d0d0d;
+    --card: #161616;
+    --card2: #1e1e1e;
+    --border: #2a2a2a;
+    --text: #f0f0f0;
+    --muted: #888;
+    --gold: #ffd700;
+    --silver: #c0c0c0;
+    --bronze: #cd7f32;
+    --soft: #ff3333;
+    --medium: #ffd700;
+    --hard: #ebebeb;
+    --inter: #39b54a;
+    --wet: #0067ff;
+    --green: #00e676;
+    --purple: #b44fff;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'Segoe UI', system-ui, sans-serif;
+    font-size: 14px;
+    min-height: 100vh;
+  }
+
+  /* ── Header ── */
+  header {
+    background: var(--red);
+    padding: 0 24px;
+    height: 56px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    position: sticky;
+    top: 0;
+    z-index: 100;
+    box-shadow: 0 2px 16px rgba(225,6,0,0.4);
+  }
+  header .logo {
+    font-size: 20px;
+    font-weight: 800;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+  }
+  header .logo span { opacity: 0.7; font-weight: 400; font-size: 13px; letter-spacing: 1px; margin-left: 10px; }
+  #clock { font-size: 13px; opacity: 0.85; font-variant-numeric: tabular-nums; }
+
+  /* ── Nav ── */
+  nav {
+    background: var(--card);
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    gap: 0;
+    padding: 0 16px;
+    overflow-x: auto;
+    scrollbar-width: none;
+  }
+  nav::-webkit-scrollbar { display: none; }
+  .nav-btn {
+    background: none;
+    border: none;
+    color: var(--muted);
+    cursor: pointer;
+    font-size: 13px;
+    font-weight: 600;
+    padding: 14px 20px;
+    border-bottom: 3px solid transparent;
+    white-space: nowrap;
+    transition: color 0.2s, border-color 0.2s;
+    letter-spacing: 0.5px;
+  }
+  .nav-btn:hover { color: var(--text); }
+  .nav-btn.active { color: var(--red); border-bottom-color: var(--red); }
+
+  /* ── Layout ── */
+  .tab { display: none; padding: 24px; max-width: 1400px; margin: 0 auto; }
+  .tab.active { display: block; }
+
+  /* ── Controls bar ── */
+  .controls {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex-wrap: wrap;
+    margin-bottom: 16px;
+  }
+  .controls label { color: var(--muted); font-size: 12px; font-weight: 600; text-transform: uppercase; letter-spacing: 1px; }
+  select, input[type=text], input[type=number] {
+    background: var(--card2);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    color: var(--text);
+    padding: 7px 12px;
+    font-size: 13px;
+    outline: none;
+    cursor: pointer;
+    transition: border-color 0.2s;
+  }
+  select:focus, input:focus { border-color: var(--red); }
+  .btn {
+    background: var(--red);
+    border: none;
+    border-radius: 6px;
+    color: #fff;
+    cursor: pointer;
+    font-size: 13px;
+    font-weight: 600;
+    padding: 7px 18px;
+    transition: background 0.2s, transform 0.1s;
+    letter-spacing: 0.5px;
+  }
+  .btn:hover { background: #ff1a0e; }
+  .btn:active { transform: scale(0.97); }
+  .btn.secondary {
+    background: var(--card2);
+    color: var(--muted);
+    border: 1px solid var(--border);
+  }
+  .btn.secondary:hover { color: var(--text); background: #2a2a2a; }
+
+  /* ── Section title ── */
+  .section-title {
+    font-size: 22px;
+    font-weight: 800;
+    letter-spacing: 1px;
+    margin-bottom: 6px;
+  }
+  .section-sub { color: var(--muted); font-size: 13px; margin-bottom: 20px; }
+
+  /* ── Table ── */
+  .table-wrap { overflow-x: auto; border-radius: 10px; border: 1px solid var(--border); }
+  table { width: 100%; border-collapse: collapse; }
+  th {
+    background: var(--card2);
+    color: var(--red);
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 1px;
+    padding: 10px 14px;
+    text-align: left;
+    text-transform: uppercase;
+    border-bottom: 1px solid var(--border);
+    white-space: nowrap;
+  }
+  td {
+    padding: 9px 14px;
+    border-bottom: 1px solid #1d1d1d;
+    font-size: 13px;
+    white-space: nowrap;
+  }
+  tr:last-child td { border-bottom: none; }
+  tr:hover td { background: rgba(255,255,255,0.02); }
+  tr.zebra td { background: rgba(255,255,255,0.01); }
+
+  /* ── Status badges ── */
+  .badge {
+    display: inline-block;
+    border-radius: 4px;
+    font-size: 11px;
+    font-weight: 700;
+    padding: 2px 7px;
+    letter-spacing: 0.5px;
+    text-transform: uppercase;
+  }
+  .badge-completed { background: #1a2e1a; color: #5a9e5a; }
+  .badge-upcoming { background: #1a1a2e; color: #5a7aae; }
+  .badge-today { background: var(--red); color: white; }
+  .badge-live { background: var(--red); color: white; animation: pulse 1.5s infinite; }
+  @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.6} }
+
+  /* ── Pos highlights ── */
+  .pos-1 { color: var(--gold); font-weight: 700; }
+  .pos-2 { color: var(--silver); font-weight: 700; }
+  .pos-3 { color: var(--bronze); font-weight: 700; }
+
+  /* ── Tyre dots ── */
+  .tyre {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 22px; height: 22px;
+    border-radius: 50%;
+    font-size: 10px;
+    font-weight: 800;
+    border: 2px solid;
+  }
+  .tyre-S { background: rgba(255,51,51,0.15); border-color: var(--soft); color: var(--soft); }
+  .tyre-M { background: rgba(255,215,0,0.12); border-color: var(--medium); color: var(--medium); }
+  .tyre-H { background: rgba(235,235,235,0.08); border-color: var(--hard); color: var(--hard); }
+  .tyre-I { background: rgba(57,181,74,0.12); border-color: var(--inter); color: var(--inter); }
+  .tyre-W { background: rgba(0,103,255,0.12); border-color: var(--wet); color: var(--wet); }
+
+  /* ── Lap time colors ── */
+  .lap-fastest { color: var(--purple); font-weight: 700; }
+  .lap-personal { color: var(--green); }
+  .sector-fastest { color: var(--purple); font-weight: 700; }
+
+  /* ── Standings layout ── */
+  .standings-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; }
+  @media(max-width: 900px) { .standings-grid { grid-template-columns: 1fr; } }
+  .card { background: var(--card); border: 1px solid var(--border); border-radius: 10px; overflow: hidden; }
+  .card-title { padding: 14px 16px; font-size: 13px; font-weight: 700; text-transform: uppercase; letter-spacing: 1px; color: var(--muted); border-bottom: 1px solid var(--border); background: var(--card2); }
+
+  /* ── Loading ── */
+  .loading {
+    display: none;
+    align-items: center;
+    gap: 10px;
+    padding: 32px;
+    color: var(--muted);
+    font-size: 13px;
+  }
+  .loading.show { display: flex; }
+  .spinner {
+    width: 18px; height: 18px;
+    border: 2px solid var(--border);
+    border-top-color: var(--red);
+    border-radius: 50%;
+    animation: spin 0.7s linear infinite;
+    flex-shrink: 0;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  /* ── Empty state ── */
+  .empty {
+    padding: 48px;
+    text-align: center;
+    color: var(--muted);
+  }
+  .empty .icon { font-size: 40px; margin-bottom: 12px; }
+
+  /* ── Live timing specific ── */
+  .live-header {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    flex-wrap: wrap;
+    margin-bottom: 16px;
+    padding: 16px;
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+  }
+  .conn-dot {
+    width: 10px; height: 10px;
+    border-radius: 50%;
+    background: #444;
+    flex-shrink: 0;
+  }
+  .conn-dot.connected { background: var(--green); box-shadow: 0 0 8px var(--green); }
+  .conn-dot.connecting { background: yellow; animation: pulse 1s infinite; }
+  .conn-dot.error { background: var(--red); }
+  #live-conn-label { font-size: 13px; font-weight: 600; color: var(--muted); }
+  #live-session-name { font-size: 15px; font-weight: 700; flex: 1; }
+  #live-lap-info { color: var(--muted); font-size: 13px; }
+  #live-track-status { font-size: 13px; font-weight: 600; }
+  .rc-panel {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 14px 16px;
+    margin-top: 16px;
+    max-height: 140px;
+    overflow-y: auto;
+  }
+  .rc-panel h4 { font-size: 11px; text-transform: uppercase; letter-spacing: 1px; color: var(--muted); margin-bottom: 10px; }
+  .rc-msg { font-size: 12px; color: #bbb; padding: 3px 0; border-bottom: 1px solid #1d1d1d; }
+  .rc-msg:last-child { border-bottom: none; }
+  .rc-msg .rc-time { color: var(--muted); margin-right: 8px; font-variant-numeric: tabular-nums; }
+
+  /* ── Status bar ── */
+  .status-row { color: var(--muted); font-size: 12px; padding: 8px 0; }
+  .status-row span { color: var(--text); font-weight: 600; }
+
+  /* ── Next race countdown ── */
+  .next-race-card {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-left: 3px solid var(--red);
+    border-radius: 10px;
+    padding: 18px 24px;
+    margin-bottom: 24px;
+    display: flex;
+    align-items: center;
+    gap: 32px;
+    flex-wrap: wrap;
+  }
+  .next-race-card .label { font-size: 10px; text-transform: uppercase; letter-spacing: 1px; color: var(--muted); margin-bottom: 4px; }
+  .next-race-card .value { font-size: 18px; font-weight: 700; }
+  .countdown { display: flex; gap: 16px; }
+  .countdown-unit { text-align: center; }
+  .countdown-unit .num { font-size: 28px; font-weight: 800; font-variant-numeric: tabular-nums; color: var(--red); line-height: 1; }
+  .countdown-unit .unit { font-size: 10px; text-transform: uppercase; color: var(--muted); letter-spacing: 1px; }
+
+  /* ── Scrollbar ── */
+  ::-webkit-scrollbar { width: 6px; height: 6px; }
+  ::-webkit-scrollbar-track { background: var(--bg); }
+  ::-webkit-scrollbar-thumb { background: #333; border-radius: 3px; }
+  ::-webkit-scrollbar-thumb:hover { background: #444; }
+
+  .driver-code { font-weight: 700; font-size: 13px; letter-spacing: 0.5px; }
+  .team-name { color: var(--muted); font-size: 12px; }
+  .gap-leader { color: var(--muted); font-size: 12px; }
+  .pit-status { font-size: 11px; font-weight: 700; }
+  .pit-status.inpit { color: yellow; }
+  .pit-status.pitout { color: cyan; }
+  .pit-status.retired { color: var(--red); }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="logo">F1 <span>Dashboard</span></div>
+  <div id="clock"></div>
+</header>
+
+<nav>
+  <button class="nav-btn active" onclick="showTab('schedule')">🗓 Schedule</button>
+  <button class="nav-btn" onclick="showTab('standings')">🏆 Standings</button>
+  <button class="nav-btn" onclick="showTab('results')">🏁 Results</button>
+  <button class="nav-btn" onclick="showTab('laps')">📊 Lap Times</button>
+  <button class="nav-btn" onclick="showTab('live')">🔴 Live Timing</button>
+</nav>
+
+<!-- ════════════════════════════════════════════════════════════ SCHEDULE -->
+<div id="tab-schedule" class="tab active">
+  <div class="section-title">Race Calendar</div>
+  <div class="section-sub">Select a season to view the full race schedule</div>
+
+  <div id="next-race-card" class="next-race-card" style="display:none">
+    <div>
+      <div class="label">Next Race</div>
+      <div class="value" id="nr-name">—</div>
+    </div>
+    <div>
+      <div class="label">Circuit</div>
+      <div class="value" id="nr-circuit" style="font-size:14px;color:var(--muted)">—</div>
+    </div>
+    <div>
+      <div class="label">Date</div>
+      <div class="value" id="nr-date" style="font-size:14px">—</div>
+    </div>
+    <div>
+      <div class="label">Countdown</div>
+      <div class="countdown" id="nr-countdown">
+        <div class="countdown-unit"><div class="num" id="cd-d">0</div><div class="unit">Days</div></div>
+        <div class="countdown-unit"><div class="num" id="cd-h">00</div><div class="unit">Hrs</div></div>
+        <div class="countdown-unit"><div class="num" id="cd-m">00</div><div class="unit">Min</div></div>
+        <div class="countdown-unit"><div class="num" id="cd-s">00</div><div class="unit">Sec</div></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="controls">
+    <label>Season</label>
+    <select id="sched-year"></select>
+    <button class="btn" onclick="loadSchedule()">Load</button>
+  </div>
+  <div class="loading" id="sched-loading"><div class="spinner"></div>Loading schedule…</div>
+  <div class="table-wrap" id="sched-wrap">
+    <table id="sched-table">
+      <thead><tr><th>Rnd</th><th>Grand Prix</th><th>Circuit</th><th>Country</th><th>Date</th><th>Status</th></tr></thead>
+      <tbody id="sched-body"><tr><td colspan="6" class="empty"><div class="icon">🏎</div>Select a season and click Load</td></tr></tbody>
+    </table>
+  </div>
+</div>
+
+<!-- ════════════════════════════════════════════════════════════ STANDINGS -->
+<div id="tab-standings" class="tab">
+  <div class="section-title">Championship Standings</div>
+  <div class="section-sub">Driver & Constructor standings</div>
+  <div class="controls">
+    <label>Season</label>
+    <select id="stand-year"></select>
+    <button class="btn" onclick="loadStandings()">Load</button>
+  </div>
+  <div class="loading" id="stand-loading"><div class="spinner"></div>Loading standings…</div>
+  <div class="standings-grid">
+    <div class="card">
+      <div class="card-title">Driver Standings</div>
+      <div class="table-wrap"><table>
+        <thead><tr><th>Pos</th><th>Driver</th><th>Team</th><th>Pts</th><th>Wins</th></tr></thead>
+        <tbody id="driver-body"><tr><td colspan="5" class="empty">—</td></tr></tbody>
+      </table></div>
+    </div>
+    <div class="card">
+      <div class="card-title">Constructor Standings</div>
+      <div class="table-wrap"><table>
+        <thead><tr><th>Pos</th><th>Constructor</th><th>Nationality</th><th>Pts</th><th>Wins</th></tr></thead>
+        <tbody id="constructor-body"><tr><td colspan="5" class="empty">—</td></tr></tbody>
+      </table></div>
+    </div>
+  </div>
+</div>
+
+<!-- ════════════════════════════════════════════════════════════ RESULTS -->
+<div id="tab-results" class="tab">
+  <div class="section-title">Session Results</div>
+  <div class="section-sub">Race and Qualifying results for any round</div>
+  <div class="controls">
+    <label>Season</label>
+    <select id="res-year"></select>
+    <label>Round</label>
+    <input type="number" id="res-round" value="1" min="1" max="24" style="width:70px">
+    <button class="btn" onclick="loadResults('race')">Race Results</button>
+    <button class="btn secondary" onclick="loadResults('qualifying')">Qualifying</button>
+    <button class="btn secondary" onclick="loadResults('sprint')">Sprint</button>
+  </div>
+  <div class="status-row" id="res-status"></div>
+  <div class="loading" id="res-loading"><div class="spinner"></div>Loading results…</div>
+  <div class="table-wrap">
+    <table>
+      <thead id="res-thead"></thead>
+      <tbody id="res-body"><tr><td colspan="7" class="empty"><div class="icon">🏁</div>Select a season and round, then click a session type</td></tr></tbody>
+    </table>
+  </div>
+</div>
+
+<!-- ════════════════════════════════════════════════════════════ LAP TIMES -->
+<div id="tab-laps" class="tab">
+  <div class="section-title">Lap Times</div>
+  <div class="section-sub">Lap-by-lap timing data for any race session</div>
+  <div class="controls">
+    <label>Season</label>
+    <select id="lap-year"></select>
+    <label>Round</label>
+    <input type="number" id="lap-round" value="1" min="1" max="24" style="width:70px">
+    <label>Lap</label>
+    <input type="number" id="lap-num" value="1" min="1" max="78" style="width:70px" placeholder="All">
+    <button class="btn" onclick="loadLaps()">Load Laps</button>
+    <button class="btn secondary" onclick="loadAllLaps()">All Laps</button>
+  </div>
+  <div class="status-row" id="lap-status"></div>
+  <div class="loading" id="lap-loading"><div class="spinner"></div>Loading lap times…</div>
+  <div class="table-wrap">
+    <table>
+      <thead><tr><th>Lap</th><th>Pos</th><th>Driver</th><th>Time</th></tr></thead>
+      <tbody id="lap-body"><tr><td colspan="4" class="empty"><div class="icon">⏱</div>Select a season and round, then click Load Laps</td></tr></tbody>
+    </table>
+  </div>
+</div>
+
+<!-- ════════════════════════════════════════════════════════════ LIVE TIMING -->
+<div id="tab-live" class="tab">
+  <div class="section-title">Live Timing</div>
+  <div class="section-sub">Real-time F1 timing data — connects to livetiming.formula1.com</div>
+
+  <div class="live-header">
+    <div class="conn-dot" id="live-dot"></div>
+    <div id="live-conn-label">Disconnected</div>
+    <div id="live-session-name" style="flex:1">—</div>
+    <div id="live-lap-info"></div>
+    <div id="live-track-status"></div>
+    <button class="btn" id="live-connect-btn" onclick="liveConnect()">● Connect</button>
+    <button class="btn secondary" onclick="liveDisconnect()">■ Disconnect</button>
+    <button class="btn secondary" onclick="liveRefreshPoll()">↻ Refresh</button>
+  </div>
+
+  <div class="table-wrap">
+    <table>
+      <thead><tr>
+        <th>Pos</th><th>No</th><th>Driver</th><th>Team</th>
+        <th>Gap</th><th>Interval</th><th>Last Lap</th>
+        <th>S1</th><th>S2</th><th>S3</th>
+        <th>Tyre</th><th>Age</th><th>Status</th>
+      </tr></thead>
+      <tbody id="live-body">
+        <tr><td colspan="13" class="empty"><div class="icon">🔴</div>Click Connect to start live timing stream<br><small style="color:var(--muted);margin-top:8px;display:block">Only active during F1 sessions · Uses F1 live timing API</small></td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <div class="rc-panel" id="rc-panel">
+    <h4>Race Control Messages</h4>
+    <div id="rc-body"><div style="color:var(--muted);font-size:12px">No messages yet</div></div>
+  </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/@microsoft/signalr@8.0.0/dist/browser/signalr.min.js"></script>
+<script>
+// ═══════════════════════════════════════════════════════════════
+// CONSTANTS & STATE
+// ═══════════════════════════════════════════════════════════════
+
+const API = 'https://api.jolpi.ca/ergast/f1';
+const CURRENT_YEAR = new Date().getFullYear();
+let liveConnection = null;
+let liveState = { drivers:{}, timing:{}, tyres:{}, sessionStatus:'', trackStatus:'', lap:0, totalLaps:0, session:'', rcMessages:[] };
+let liveRefreshInterval = null;
+let countdownTarget = null;
+
+// ═══════════════════════════════════════════════════════════════
+// INIT
+// ═══════════════════════════════════════════════════════════════
+
+document.addEventListener('DOMContentLoaded', () => {
+  // Populate year selects
+  const selects = ['sched-year','stand-year','res-year','lap-year'];
+  selects.forEach(id => {
+    const sel = document.getElementById(id);
+    for (let y = CURRENT_YEAR; y >= 2018; y--) {
+      sel.add(new Option(y, y));
+    }
+  });
+  // Auto-load schedule on start
+  loadSchedule();
+  // Clock
+  updateClock();
+  setInterval(updateClock, 1000);
+  setInterval(updateCountdown, 1000);
+});
+
+function updateClock() {
+  const now = new Date();
+  document.getElementById('clock').textContent =
+    now.toUTCString().replace('GMT','UTC').slice(5, -4);
+}
+
+// ═══════════════════════════════════════════════════════════════
+// TAB SWITCHING
+// ═══════════════════════════════════════════════════════════════
+
+function showTab(name) {
+  document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+  document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
+  document.getElementById('tab-' + name).classList.add('active');
+  event.currentTarget.classList.add('active');
+}
+
+// ═══════════════════════════════════════════════════════════════
+// UTILS
+// ═══════════════════════════════════════════════════════════════
+
+function setLoading(id, show) {
+  document.getElementById(id).classList.toggle('show', show);
+}
+
+async function fetchJSON(url) {
+  const res = await fetch(url);
+  if (!res.ok) throw new Error(`HTTP ${res.status}`);
+  return res.json();
+}
+
+function posClass(pos) {
+  if (pos === '1' || pos === 1) return 'pos-1';
+  if (pos === '2' || pos === 2) return 'pos-2';
+  if (pos === '3' || pos === 3) return 'pos-3';
+  return '';
+}
+
+function tyreHTML(compound) {
+  const map = { SOFT:'S', MEDIUM:'M', HARD:'H', INTERMEDIATE:'I', WET:'W' };
+  const c = (compound||'').toUpperCase();
+  const letter = map[c] || '?';
+  const cls = map[c] ? `tyre-${letter}` : '';
+  return `<span class="tyre ${cls}">${letter}</span>`;
+}
+
+function empty(msg) {
+  return `<tr><td colspan="20" class="empty"><div class="icon">🏎</div>${msg}</td></tr>`;
+}
+
+// ═══════════════════════════════════════════════════════════════
+// SCHEDULE
+// ═══════════════════════════════════════════════════════════════
+
+async function loadSchedule() {
+  const year = document.getElementById('sched-year').value;
+  setLoading('sched-loading', true);
+  try {
+    const data = await fetchJSON(`${API}/${year}.json?limit=30`);
+    const races = data.MRData.RaceTable.Races;
+    const today = new Date(); today.setHours(0,0,0,0);
+    const tbody = document.getElementById('sched-body');
+    tbody.innerHTML = '';
+
+    let nextRace = null;
+
+    races.forEach((race, i) => {
+      const date = new Date(race.date + 'T' + (race.time||'12:00:00Z'));
+      const raceDay = new Date(race.date); raceDay.setHours(0,0,0,0);
+      let badge, status;
+      if (raceDay < today) { badge='badge-completed'; status='Completed'; }
+      else if (raceDay.getTime()===today.getTime()) { badge='badge-today'; status='TODAY'; }
+      else { badge='badge-upcoming'; status='Upcoming'; }
+
+      if (!nextRace && raceDay >= today) nextRace = race;
+
+      const tr = document.createElement('tr');
+      if (i%2===0) tr.className='zebra';
+      tr.innerHTML = `
+        <td>${race.round}</td>
+        <td><strong>${race.raceName}</strong></td>
+        <td>${race.Circuit.circuitName}</td>
+        <td>${race.Circuit.Location.country}</td>
+        <td>${new Date(race.date).toLocaleDateString('en-GB',{day:'2-digit',month:'short',year:'numeric'})}</td>
+        <td><span class="badge ${badge}">${status}</span></td>
+      `;
+      tbody.appendChild(tr);
+    });
+
+    // Next race card
+    if (nextRace) {
+      countdownTarget = new Date(nextRace.date + 'T' + (nextRace.time||'12:00:00Z'));
+      document.getElementById('nr-name').textContent = nextRace.raceName;
+      document.getElementById('nr-circuit').textContent = nextRace.Circuit.circuitName + ', ' + nextRace.Circuit.Location.country;
+      document.getElementById('nr-date').textContent = new Date(nextRace.date).toLocaleDateString('en-GB',{weekday:'long',day:'numeric',month:'long'});
+      document.getElementById('next-race-card').style.display = 'flex';
+      updateCountdown();
+    }
+  } catch(e) {
+    document.getElementById('sched-body').innerHTML = empty('Failed to load schedule: ' + e.message);
+  } finally {
+    setLoading('sched-loading', false);
+  }
+}
+
+function updateCountdown() {
+  if (!countdownTarget) return;
+  const diff = countdownTarget - new Date();
+  if (diff <= 0) {
+    document.getElementById('cd-d').textContent = '0';
+    document.getElementById('cd-h').textContent = '00';
+    document.getElementById('cd-m').textContent = '00';
+    document.getElementById('cd-s').textContent = '00';
+    return;
+  }
+  const d = Math.floor(diff/864e5);
+  const h = Math.floor((diff%864e5)/36e5);
+  const m = Math.floor((diff%36e5)/6e4);
+  const s = Math.floor((diff%6e4)/1e3);
+  document.getElementById('cd-d').textContent = d;
+  document.getElementById('cd-h').textContent = String(h).padStart(2,'0');
+  document.getElementById('cd-m').textContent = String(m).padStart(2,'0');
+  document.getElementById('cd-s').textContent = String(s).padStart(2,'0');
+}
+
+// ═══════════════════════════════════════════════════════════════
+// STANDINGS
+// ═══════════════════════════════════════════════════════════════
+
+async function loadStandings() {
+  const year = document.getElementById('stand-year').value;
+  setLoading('stand-loading', true);
+  try {
+    const [dData, cData] = await Promise.all([
+      fetchJSON(`${API}/${year}/driverStandings.json`),
+      fetchJSON(`${API}/${year}/constructorStandings.json`)
+    ]);
+
+    const dStandings = dData.MRData.StandingsTable.StandingsLists[0]?.DriverStandings || [];
+    const cStandings = cData.MRData.StandingsTable.StandingsLists[0]?.ConstructorStandings || [];
+
+    const dbody = document.getElementById('driver-body');
+    dbody.innerHTML = dStandings.length ? '' : empty('No driver standings data');
+    dStandings.forEach((d, i) => {
+      const name = `${d.Driver.givenName} ${d.Driver.familyName}`;
+      const tr = document.createElement('tr');
+      if (i%2===0) tr.className='zebra';
+      tr.innerHTML = `
+        <td class="${posClass(d.position)}">${d.position}</td>
+        <td><span class="driver-code">${d.Driver.code||name.split(' ').pop().slice(0,3).toUpperCase()}</span> <span class="team-name">${name}</span></td>
+        <td class="team-name">${d.Constructors[0]?.name||'—'}</td>
+        <td><strong>${d.points}</strong></td>
+        <td>${d.wins}</td>
+      `;
+      dbody.appendChild(tr);
+    });
+
+    const cbody = document.getElementById('constructor-body');
+    cbody.innerHTML = cStandings.length ? '' : empty('No constructor standings data');
+    cStandings.forEach((c, i) => {
+      const tr = document.createElement('tr');
+      if (i%2===0) tr.className='zebra';
+      tr.innerHTML = `
+        <td class="${posClass(c.position)}">${c.position}</td>
+        <td><strong>${c.Constructor.name}</strong></td>
+        <td class="team-name">${c.Constructor.nationality}</td>
+        <td><strong>${c.points}</strong></td>
+        <td>${c.wins}</td>
+      `;
+      cbody.appendChild(tr);
+    });
+  } catch(e) {
+    document.getElementById('driver-body').innerHTML = empty('Error: ' + e.message);
+  } finally {
+    setLoading('stand-loading', false);
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════
+// RESULTS
+// ═══════════════════════════════════════════════════════════════
+
+async function loadResults(type) {
+  const year = document.getElementById('res-year').value;
+  const round = document.getElementById('res-round').value;
+  setLoading('res-loading', true);
+  document.getElementById('res-status').innerHTML = '';
+
+  const thead = document.getElementById('res-thead');
+  const tbody = document.getElementById('res-body');
+
+  try {
+    const data = await fetchJSON(`${API}/${year}/${round}/${type}.json`);
+    const races = data.MRData.RaceTable.Races;
+
+    if (!races.length) {
+      tbody.innerHTML = empty('No results found for this round');
+      thead.innerHTML = '';
+      return;
+    }
+
+    const race = races[0];
+    document.getElementById('res-status').innerHTML =
+      `<span>${race.raceName}</span> · Round ${race.round} · ${race.date}`;
+
+    if (type === 'race') {
+      thead.innerHTML = '<tr><th>Pos</th><th>No</th><th>Driver</th><th>Constructor</th><th>Laps</th><th>Time / Status</th><th>Pts</th></tr>';
+      tbody.innerHTML = '';
+      (race.Results||[]).forEach((r, i) => {
+        const name = `${r.Driver.givenName} ${r.Driver.familyName}`;
+        const time = r.Time?.time || r.status || '—';
+        const tr = document.createElement('tr');
+        if (i%2===0) tr.className='zebra';
+        tr.innerHTML = `
+          <td class="${posClass(r.position)}"><strong>${r.position}</strong></td>
+          <td class="team-name">${r.number}</td>
+          <td><span class="driver-code">${r.Driver.code||'???'}</span> <span class="team-name">${name}</span></td>
+          <td class="team-name">${r.Constructor.name}</td>
+          <td>${r.laps}</td>
+          <td>${r.position==='1' ? `⏱ ${time}` : time}</td>
+          <td><strong>${r.points}</strong></td>
+        `;
+        tbody.appendChild(tr);
+      });
+    } else if (type === 'qualifying') {
+      thead.innerHTML = '<tr><th>Pos</th><th>No</th><th>Driver</th><th>Constructor</th><th>Q1</th><th>Q2</th><th>Q3</th></tr>';
+      tbody.innerHTML = '';
+      (race.QualifyingResults||[]).forEach((r, i) => {
+        const name = `${r.Driver.givenName} ${r.Driver.familyName}`;
+        const tr = document.createElement('tr');
+        if (i%2===0) tr.className='zebra';
+        tr.innerHTML = `
+          <td class="${posClass(r.position)}"><strong>${r.position}</strong></td>
+          <td class="team-name">${r.number}</td>
+          <td><span class="driver-code">${r.Driver.code||'???'}</span> <span class="team-name">${name}</span></td>
+          <td class="team-name">${r.Constructor.name}</td>
+          <td>${r.Q1||'—'}</td>
+          <td>${r.Q2||'—'}</td>
+          <td class="${r.Q3?'lap-personal':''}">${r.Q3||'—'}</td>
+        `;
+        tbody.appendChild(tr);
+      });
+    } else if (type === 'sprint') {
+      thead.innerHTML = '<tr><th>Pos</th><th>No</th><th>Driver</th><th>Constructor</th><th>Laps</th><th>Time / Status</th><th>Pts</th></tr>';
+      tbody.innerHTML = '';
+      const sprintResults = race.SprintResults || race.Results || [];
+      if (!sprintResults.length) { tbody.innerHTML = empty('No sprint results for this round'); return; }
+      sprintResults.forEach((r, i) => {
+        const name = `${r.Driver.givenName} ${r.Driver.familyName}`;
+        const time = r.Time?.time || r.status || '—';
+        const tr = document.createElement('tr');
+        if (i%2===0) tr.className='zebra';
+        tr.innerHTML = `
+          <td class="${posClass(r.position)}"><strong>${r.position}</strong></td>
+          <td class="team-name">${r.number}</td>
+          <td><span class="driver-code">${r.Driver.code||'???'}</span> <span class="team-name">${name}</span></td>
+          <td class="team-name">${r.Constructor.name}</td>
+          <td>${r.laps||'—'}</td>
+          <td>${time}</td>
+          <td><strong>${r.points}</strong></td>
+        `;
+        tbody.appendChild(tr);
+      });
+    }
+  } catch(e) {
+    tbody.innerHTML = empty('Error loading results: ' + e.message);
+  } finally {
+    setLoading('res-loading', false);
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════
+// LAP TIMES
+// ═══════════════════════════════════════════════════════════════
+
+async function loadLaps() {
+  const year = document.getElementById('lap-year').value;
+  const round = document.getElementById('lap-round').value;
+  const lap = document.getElementById('lap-num').value;
+  setLoading('lap-loading', true);
+  document.getElementById('lap-status').innerHTML = '';
+  const tbody = document.getElementById('lap-body');
+  try {
+    const data = await fetchJSON(`${API}/${year}/${round}/laps/${lap}.json?limit=30`);
+    const races = data.MRData.RaceTable.Races;
+    if (!races.length || !races[0].Laps?.length) {
+      tbody.innerHTML = empty('No lap data found');
+      return;
+    }
+    const lapData = races[0].Laps[0];
+    document.getElementById('lap-status').innerHTML = `<span>${races[0].raceName}</span> · Lap ${lapData.number}`;
+    tbody.innerHTML = '';
+    lapData.Timings.sort((a,b) => parseInt(a.position)-parseInt(b.position)).forEach((t, i) => {
+      const tr = document.createElement('tr');
+      if (i%2===0) tr.className='zebra';
+      tr.innerHTML = `
+        <td>${lapData.number}</td>
+        <td class="${posClass(t.position)}">${t.position}</td>
+        <td class="driver-code">${t.driverId}</td>
+        <td>${t.time}</td>
+      `;
+      tbody.appendChild(tr);
+    });
+  } catch(e) {
+    tbody.innerHTML = empty('Error: ' + e.message);
+  } finally {
+    setLoading('lap-loading', false);
+  }
+}
+
+async function loadAllLaps() {
+  const year = document.getElementById('lap-year').value;
+  const round = document.getElementById('lap-round').value;
+  setLoading('lap-loading', true);
+  document.getElementById('lap-status').innerHTML = 'Loading all laps (this may take a moment)…';
+  const tbody = document.getElementById('lap-body');
+  tbody.innerHTML = '';
+  try {
+    // Fetch with high limit to get all laps at once
+    const data = await fetchJSON(`${API}/${year}/${round}/laps.json?limit=2000`);
+    const races = data.MRData.RaceTable.Races;
+    if (!races.length) { tbody.innerHTML = empty('No lap data found'); return; }
+    const race = races[0];
+    let count = 0;
+    // Find fastest time across all laps for highlighting
+    let allTimes = [];
+    race.Laps?.forEach(lap => lap.Timings.forEach(t => allTimes.push(t.time)));
+    const toSeconds = t => { const p=t.split(':'); return parseFloat(p[0])*60+parseFloat(p[1]); };
+    const fastest = allTimes.reduce((min, t) => { try { return Math.min(min, toSeconds(t)); } catch{ return min; } }, Infinity);
+
+    race.Laps?.forEach(lap => {
+      lap.Timings.sort((a,b)=>parseInt(a.position)-parseInt(b.position)).forEach((t, i) => {
+        const tr = document.createElement('tr');
+        if (i%2===0) tr.className='zebra';
+        let timeClass='';
+        try { if (Math.abs(toSeconds(t.time)-fastest)<0.01) timeClass='lap-fastest'; } catch{}
+        tr.innerHTML = `
+          <td>${lap.number}</td>
+          <td class="${posClass(t.position)}">${t.position}</td>
+          <td class="driver-code">${t.driverId}</td>
+          <td class="${timeClass}">${t.time}${timeClass?' ⚡':''}</td>
+        `;
+        tbody.appendChild(tr);
+        count++;
+      });
+    });
+    document.getElementById('lap-status').innerHTML = `<span>${race.raceName}</span> · ${count} lap entries loaded`;
+  } catch(e) {
+    tbody.innerHTML = empty('Error: ' + e.message);
+  } finally {
+    setLoading('lap-loading', false);
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════
+// LIVE TIMING
+// ═══════════════════════════════════════════════════════════════
+
+function setLiveDot(state) {
+  const dot = document.getElementById('live-dot');
+  const label = document.getElementById('live-conn-label');
+  dot.className = 'conn-dot ' + state;
+  const labels = { connected:'Connected', connecting:'Connecting…', error:'Connection Error', '':'Disconnected' };
+  label.textContent = labels[state] || 'Disconnected';
+}
+
+function deepMerge(base, update) {
+  for (const [k, v] of Object.entries(update)) {
+    if (v && typeof v === 'object' && !Array.isArray(v) && base[k] && typeof base[k]==='object') {
+      deepMerge(base[k], v);
+    } else {
+      base[k] = v;
+    }
+  }
+}
+
+function applyLiveMessage(topic, data) {
+  if (!data || typeof data !== 'object') return;
+  if (topic === 'DriverList') {
+    Object.entries(data).forEach(([num, info]) => {
+      if (typeof info === 'object') {
+        if (!liveState.drivers[num]) liveState.drivers[num] = {};
+        Object.assign(liveState.drivers[num], info);
+      }
+    });
+  } else if (topic === 'TimingData') {
+    const lines = data.Lines || data;
+    if (typeof lines === 'object') {
+      Object.entries(lines).forEach(([num, info]) => {
+        if (typeof info === 'object') {
+          if (!liveState.timing[num]) liveState.timing[num] = {};
+          deepMerge(liveState.timing[num], info);
+        }
+      });
+    }
+  } else if (topic === 'TimingAppData') {
+    const lines = data.Lines || data;
+    if (typeof lines === 'object') {
+      Object.entries(lines).forEach(([num, info]) => {
+        if (typeof info !== 'object') return;
+        const stints = info.Stints;
+        if (!stints || typeof stints !== 'object') return;
+        const keys = Object.keys(stints).filter(k => !isNaN(k));
+        if (!keys.length) return;
+        const lastKey = keys.reduce((a,b) => parseInt(a)>parseInt(b)?a:b);
+        const stint = stints[lastKey];
+        if (stint && typeof stint === 'object') {
+          if (!liveState.tyres[num]) liveState.tyres[num] = {};
+          Object.assign(liveState.tyres[num], stint);
+        }
+      });
+    }
+  } else if (topic === 'SessionStatus') {
+    liveState.sessionStatus = data.Status || liveState.sessionStatus;
+  } else if (topic === 'TrackStatus') {
+    const map = {'1':'🟢 Track Clear','2':'🟡 Yellow Flag','3':'🟠 Safety Car','4':'🟠 Safety Car','5':'🔴 Red Flag','6':'🟡 VSC','7':'🟡 VSC Ending'};
+    liveState.trackStatus = map[data.Status] || '';
+    document.getElementById('live-track-status').textContent = liveState.trackStatus;
+  } else if (topic === 'LapCount') {
+    liveState.lap = parseInt(data.CurrentLap||0) || liveState.lap;
+    liveState.totalLaps = parseInt(data.TotalLaps||0) || liveState.totalLaps;
+    updateLiveLapInfo();
+  } else if (topic === 'SessionInfo') {
+    const name = (data.Meeting?.Name||'') + (data.Name ? ' — ' + data.Name : '');
+    if (name.trim()) { liveState.session = name; document.getElementById('live-session-name').textContent = name; }
+  } else if (topic === 'RaceControlMessages') {
+    const msgs = data.Messages;
+    if (!msgs) return;
+    const arr = Array.isArray(msgs) ? msgs : Object.values(msgs);
+    arr.forEach(m => { if (m?.Message) liveState.rcMessages.unshift({ msg: m.Message, time: m.Utc||'' }); });
+    liveState.rcMessages = liveState.rcMessages.slice(0, 20);
+    renderRC();
+  }
+  renderLiveBoard();
+}
+
+function updateLiveLapInfo() {
+  const el = document.getElementById('live-lap-info');
+  if (liveState.totalLaps) el.textContent = `Lap ${liveState.lap} / ${liveState.totalLaps}`;
+  else if (liveState.lap) el.textContent = `Lap ${liveState.lap}`;
+}
+
+function renderRC() {
+  const body = document.getElementById('rc-body');
+  if (!liveState.rcMessages.length) { body.innerHTML = '<div style="color:var(--muted);font-size:12px">No messages yet</div>'; return; }
+  body.innerHTML = liveState.rcMessages.map(m =>
+    `<div class="rc-msg"><span class="rc-time">${m.time ? new Date(m.time).toLocaleTimeString() : ''}</span>${m.msg}</div>`
+  ).join('');
+}
+
+function sectorVal(s) {
+  if (!s) return '';
+  if (typeof s === 'object') return s.Value || '';
+  return String(s);
+}
+function sectorFastest(s) {
+  if (!s || typeof s !== 'object') return false;
+  return s.OverallFastest || s.PersonalFastest;
+}
+
+function renderLiveBoard() {
+  const rows = [];
+  for (const [num, t] of Object.entries(liveState.timing)) {
+    const drv = liveState.drivers[num] || {};
+    const tyre = liveState.tyres[num] || {};
+    const pos = parseInt(t.Position) || 99;
+    const sectors = t.Sectors || {};
+    const getSector = (key) => {
+      if (Array.isArray(sectors)) return sectors[parseInt(key)] || {};
+      return sectors[key] || sectors[String(key)] || {};
+    };
+    const s1 = getSector(0), s2 = getSector(1), s3 = getSector(2);
+    const lastLap = t.LastLapTime || {};
+    const interval = t.IntervalToPositionAhead || {};
+    const compound = (tyre.Compound||'').toUpperCase();
+    rows.push({ pos, num, drv, tyre, t, s1, s2, s3, lastLap, interval, compound });
+  }
+  rows.sort((a,b) => a.pos-b.pos);
+
+  const tbody = document.getElementById('live-body');
+  if (!rows.length) return;
+  tbody.innerHTML = '';
+
+  rows.forEach((r, i) => {
+    const { pos, num, drv, tyre, t, s1, s2, s3, lastLap, interval, compound } = r;
+    const posClass_ = posClass(pos);
+    const lastLapVal = typeof lastLap==='object' ? (lastLap.Value||'') : (lastLap||'');
+    const lastLapFastest = typeof lastLap==='object' && lastLap.OverallFastest;
+    const lastLapPersonal = typeof lastLap==='object' && lastLap.PersonalFastest;
+    const lapClass = lastLapFastest ? 'lap-fastest' : lastLapPersonal ? 'lap-personal' : '';
+    const intervalVal = typeof interval==='object' ? (interval.Value||'') : (interval||'');
+    const gap = t.GapToLeader || (pos===1?'LEADER':'');
+    let status='', statusClass='';
+    if (t.Retired) { status='OUT'; statusClass='pit-status retired'; }
+    else if (t.InPit) { status='PIT'; statusClass='pit-status inpit'; }
+    else if (t.PitOut) { status='OUT LAP'; statusClass='pit-status pitout'; }
+
+    const tr = document.createElement('tr');
+    if (i%2===0) tr.className='zebra';
+    tr.innerHTML = `
+      <td class="${posClass_}"><strong>${pos}</strong></td>
+      <td class="team-name">${num}</td>
+      <td><span class="driver-code">${drv.Tla||num}</span> <span class="team-name">${(drv.FullName||'').split(' ').pop()}</span></td>
+      <td class="team-name">${(drv.TeamName||'').slice(0,14)}</td>
+      <td class="gap-leader">${gap}</td>
+      <td class="gap-leader">${intervalVal}</td>
+      <td class="${lapClass}">${lastLapVal}${lastLapFastest?' ⚡':''}</td>
+      <td class="${sectorFastest(s1)?'sector-fastest':''}">${sectorVal(s1)}</td>
+      <td class="${sectorFastest(s2)?'sector-fastest':''}">${sectorVal(s2)}</td>
+      <td class="${sectorFastest(s3)?'sector-fastest':''}">${sectorVal(s3)}</td>
+      <td>${tyreHTML(compound)}</td>
+      <td class="team-name">${tyre.TotalLaps||''}</td>
+      <td class="${statusClass}">${status}</td>
+    `;
+    tbody.appendChild(tr);
+  });
+}
+
+async function liveConnect() {
+  if (liveConnection) liveDisconnect();
+  liveState = { drivers:{}, timing:{}, tyres:{}, sessionStatus:'', trackStatus:'', lap:0, totalLaps:0, session:'', rcMessages:[] };
+  document.getElementById('live-session-name').textContent = 'Connecting…';
+  setLiveDot('connecting');
+
+  // ── Step 1: try local proxy (no CORS issues) ──────────────────────────────
+  const proxyOk = await tryProxyConnect();
+  if (proxyOk) return;
+
+  // ── Step 2: try direct SignalR ────────────────────────────────────────────
+  const directOk = await tryDirectSignalR();
+  if (directOk) return;
+
+  // ── Step 3: fall back to API polling ─────────────────────────────────────
+  setLiveDot('error');
+  document.getElementById('live-session-name').textContent = 'Using API polling (30s refresh)';
+  document.getElementById('live-body').innerHTML =
+    `<tr><td colspan="13" class="empty">
+      ℹ️ No proxy or direct connection available<br>
+      <small style="color:var(--muted);margin-top:8px;display:block">
+        Run <code style="background:#222;padding:2px 6px;border-radius:3px">python proxy.py</code>
+        for real-time data. Using 30s API polling as fallback.
+      </small>
+    </td></tr>`;
+  liveRefreshPoll();
+}
+
+async function tryProxyConnect() {
+  return new Promise(resolve => {
+    const ws = new WebSocket('ws://localhost:8765');
+    const timeout = setTimeout(() => { ws.close(); resolve(false); }, 2000);
+
+    ws.onopen = () => {
+      clearTimeout(timeout);
+      console.log('Proxy connected ✅');
+      liveConnection = ws;
+
+      setLiveDot('connected');
+      document.getElementById('live-session-name').textContent = 'Connected via proxy — waiting for session…';
+      document.getElementById('live-body').innerHTML =
+        `<tr><td colspan="13" class="empty">✅ Proxy connected.<br>
+         <small style="color:var(--muted);margin-top:8px;display:block">
+           Receiving live data from F1 timing stream. Board will populate when a session is active.
+         </small></td></tr>`;
+
+      ws.onmessage = (e) => {
+        try {
+          const { topic, data } = JSON.parse(e.data);
+          if (topic === '__proxy__') {
+            // F1 upstream status
+            const dot = data.connected ? 'connected' : 'connecting';
+            setLiveDot(dot);
+          } else {
+            applyLiveMessage(topic, data);
+          }
+        } catch(err) {}
+      };
+
+      ws.onclose = () => {
+        if (liveConnection === ws) {
+          setLiveDot('error');
+          document.getElementById('live-conn-label').textContent = 'Proxy disconnected — reconnecting…';
+          setTimeout(liveConnect, 5000);
+        }
+      };
+
+      resolve(true);
+    };
+
+    ws.onerror = () => { clearTimeout(timeout); resolve(false); };
+  });
+}
+
+async function tryDirectSignalR() {
+  const topics = [
+    "Heartbeat","DriverList","TimingData","TimingAppData",
+    "SessionStatus","TrackStatus","LapCount","SessionInfo",
+    "RaceControlMessages","WeatherData","TopThree"
+  ];
+  try {
+    const conn = new signalR.HubConnectionBuilder()
+      .withUrl('https://livetiming.formula1.com/signalrcore', {
+        skipNegotiation: false,
+        transport: signalR.HttpTransportType.WebSockets
+      })
+      .withAutomaticReconnect()
+      .configureLogging(signalR.LogLevel.Warning)
+      .build();
+
+    conn.on('feed', (topic, data) => {
+      try { applyLiveMessage(topic, typeof data==='string' ? JSON.parse(data) : data); } catch{}
+    });
+    conn.onclose(() => setLiveDot('error'));
+    conn.onreconnecting(() => setLiveDot('connecting'));
+    conn.onreconnected(() => setLiveDot('connected'));
+
+    await conn.start();
+    await conn.invoke('Subscribe', topics);
+    liveConnection = conn;
+    setLiveDot('connected');
+    document.getElementById('live-session-name').textContent = 'Connected (direct) — waiting for session…';
+    document.getElementById('live-body').innerHTML =
+      `<tr><td colspan="13" class="empty">✅ Direct connection to F1 live timing.<br>
+       <small style="color:var(--muted);margin-top:8px;display:block">
+         Data will appear when a session is active.
+       </small></td></tr>`;
+    return true;
+  } catch(e) {
+    console.log('Direct SignalR failed:', e.message);
+    return false;
+  }
+}
+
+function liveDisconnect() {
+  if (liveRefreshInterval) { clearInterval(liveRefreshInterval); liveRefreshInterval = null; }
+  if (liveConnection) {
+    // WebSocket (proxy) vs SignalR (direct)
+    if (typeof liveConnection.stop === 'function') liveConnection.stop();
+    else if (typeof liveConnection.close === 'function') liveConnection.close();
+    liveConnection = null;
+  }
+  setLiveDot('');
+  document.getElementById('live-session-name').textContent = '—';
+  document.getElementById('live-lap-info').textContent = '';
+  document.getElementById('live-track-status').textContent = '';
+}
+
+// Near-live polling fallback via Jolpica API
+async function liveRefreshPoll() {
+  const year = CURRENT_YEAR;
+  document.getElementById('live-session-name').textContent = 'Near-Live Polling Mode (updates every 30s)';
+  document.getElementById('live-body').innerHTML = `<tr><td colspan="13"><div class="loading show"><div class="spinner"></div>Fetching latest results…</div></td></tr>`;
+  try {
+    // Get current/latest race results
+    const data = await fetchJSON(`${API}/${year}/results.json?limit=1`);
+    const races = data.MRData.RaceTable.Races;
+    if (!races.length) { document.getElementById('live-body').innerHTML = empty('No results available yet for ' + year); return; }
+    const race = races[0];
+    document.getElementById('live-session-name').textContent = `📡 Latest: ${race.raceName} (Round ${race.round})`;
+
+    const tbody = document.getElementById('live-body');
+    tbody.innerHTML = '';
+    (race.Results||[]).forEach((r, i) => {
+      const name = `${r.Driver.givenName} ${r.Driver.familyName}`;
+      const time = r.Time?.time || r.status || '—';
+      const tr = document.createElement('tr');
+      if (i%2===0) tr.className='zebra';
+      tr.innerHTML = `
+        <td class="${posClass(r.position)}"><strong>${r.position}</strong></td>
+        <td class="team-name">${r.number}</td>
+        <td><span class="driver-code">${r.Driver.code||'???'}</span> <span class="team-name">${name}</span></td>
+        <td class="team-name">${r.Constructor.name}</td>
+        <td class="gap-leader">—</td><td class="gap-leader">—</td>
+        <td>—</td><td>—</td><td>—</td><td>—</td>
+        <td>${tyreHTML('')}</td>
+        <td>—</td>
+        <td class="team-name">${time}</td>
+      `;
+      tbody.appendChild(tr);
+    });
+  } catch(e) {
+    document.getElementById('live-body').innerHTML = empty('Poll error: ' + e.message);
+  }
+  // Schedule next poll
+  if (liveRefreshInterval) clearInterval(liveRefreshInterval);
+  liveRefreshInterval = setInterval(liveRefreshPoll, 30000);
+}
+</script>
+</body>
+</html>
