@@ -352,6 +352,7 @@
   <button class="nav-btn" onclick="showTab('results')">🏁 Results</button>
   <button class="nav-btn" onclick="showTab('laps')">📊 Lap Times</button>
   <button class="nav-btn" onclick="showTab('live')">🔴 Live Timing</button>
+  <button class="nav-btn" onclick="showTab('replay')">📼 Replay</button>
 </nav>
 
 <!-- ════════════════════════════════════════════════════════════ SCHEDULE -->
@@ -576,6 +577,7 @@ function showTab(name) {
   document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
   document.getElementById('tab-' + name).classList.add('active');
   event.currentTarget.classList.add('active');
+  if (name === 'live') initTrackCanvas();
 }
 
 // ═══════════════════════════════════════════════════════════════
