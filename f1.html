@@ -1227,6 +1227,176 @@ function handlePositionData(data) {
   if (!trackRafId) initTrackCanvas();
 }
 
+// ═══════════════════════════════════════════════════════════════
+// REPLAY
+// ═══════════════════════════════════════════════════════════════
+
+function replayLoad() {
+  const year    = document.getElementById('rep-year').value;
+  const round   = document.getElementById('rep-round').value;
+  const session = document.getElementById('rep-session').value;
+
+  repPlaying = false; repDuration = 0; repCurrentT = 0;
+  repDrivers = {}; repTrackData = null; repPositions = {};
+  document.getElementById('rep-controls').style.display = 'none';
+  document.getElementById('rep-legend').innerHTML = '<div style="color:var(--muted);font-size:12px;padding:8px">Loading…</div>';
+  repSetStatus('loading', `Loading ${year} Round ${round} ${session} via FastF1… (may take 30–60s first time)`);
+
+  // Connect (or reuse) proxy WebSocket
+  if (!repConnection || repConnection.readyState !== WebSocket.OPEN) {
+    repConnection = new WebSocket('ws://localhost:8765');
+    repConnection.onopen  = () => replaySend({ cmd:'replay_load', year, round, session });
+    repConnection.onerror = () => repSetStatus('error', 'Could not connect to proxy. Is proxy.py running?');
+    repConnection.onmessage = repOnMessage;
+    repConnection.onclose = () => {};
+  } else {
+    replaySend({ cmd:'replay_load', year, round, session });
+  }
+}
+
+function replaySend(obj) {
+  if (repConnection && repConnection.readyState === WebSocket.OPEN)
+    repConnection.send(JSON.stringify(obj));
+}
+
+function repOnMessage(e) {
+  try {
+    const { topic, data } = JSON.parse(e.data);
+    if (topic === '__replay_status__') {
+      repSetStatus(data.state, data.msg);
+      if (data.state === 'ready' || data.state === 'finished') {
+        const btn = document.getElementById('rep-play-btn');
+        btn.textContent = data.state === 'finished' ? '↩ Replay' : '▶ Play';
+        btn.className = 'btn play';
+      }
+    } else if (topic === '__replay_ready__') {
+      repDuration = data.duration;
+      repDrivers = data.drivers || {};
+      document.getElementById('rep-circuit-label').textContent = data.circuit || 'Track Map';
+      document.getElementById('rep-controls').style.display = 'flex';
+      repRenderLegend();
+    } else if (topic === '__track__') {
+      repTrackData = data;
+      if (!repRafId) repRafId = requestAnimationFrame(repRenderFrame);
+    } else if (topic === '__replay_frame__') {
+      repPositions = data.positions || {};
+      repCurrentT = data.t || 0;
+      repUpdateProgress();
+    }
+  } catch(err) {}
+}
+
+function repSetStatus(state, msg) {
+  const el = document.getElementById('rep-status');
+  el.className = 'rep-status' + (state === 'error' ? ' error' : '');
+  const icons = { loading:'⏳', ready:'✅', error:'❌', finished:'🏁' };
+  el.textContent = (icons[state] || 'ℹ️') + ' ' + msg;
+}
+
+function replayToggle() {
+  if (repDuration === 0) return;
+  repPlaying = !repPlaying;
+  const btn = document.getElementById('rep-play-btn');
+  btn.textContent = repPlaying ? '⏸ Pause' : '▶ Play';
+  btn.className = repPlaying ? 'btn pause' : 'btn play';
+  replaySend({ cmd: repPlaying ? 'replay_play' : 'replay_pause',
+               speed: parseFloat(document.getElementById('rep-speed').value) });
+}
+
+function replaySetSpeed() {
+  const speed = parseFloat(document.getElementById('rep-speed').value);
+  replaySend({ cmd: 'replay_speed', speed });
+}
+
+function replaySeek(e) {
+  const bar = document.getElementById('rep-bar');
+  const pct = Math.max(0, Math.min(1, e.offsetX / bar.offsetWidth));
+  replaySend({ cmd: 'replay_seek', pct });
+}
+
+function repUpdateProgress() {
+  if (!repDuration) return;
+  const pct = repCurrentT / repDuration * 100;
+  document.getElementById('rep-progress').style.width = pct + '%';
+  document.getElementById('rep-time').textContent =
+    fmtTime(repCurrentT) + ' / ' + fmtTime(repDuration);
+  const count = Object.keys(repPositions).length;
+  document.getElementById('rep-car-count').textContent = count ? `${count} cars` : '';
+  document.getElementById('rep-track-info').textContent =
+    repTrackData?.circuit ? `${repTrackData.circuit}  ·  ${fmtTime(repCurrentT)}` : '';
+}
+
+function fmtTime(s) {
+  const m = Math.floor(s / 60), sec = Math.floor(s % 60);
+  return `${m}:${String(sec).padStart(2,'0')}`;
+}
+
+function repRenderLegend() {
+  const el = document.getElementById('rep-legend');
+  const items = Object.entries(repDrivers).sort((a,b) => a[1].code.localeCompare(b[1].code));
+  if (!items.length) { el.innerHTML = '<div style="color:var(--muted);font-size:12px;padding:8px">No driver data</div>'; return; }
+  el.innerHTML = items.map(([num, d]) =>
+    `<div class="driver-legend-item">
+      <div class="legend-dot" style="background:#${d.color||'aaa'}"></div>
+      <strong>${d.code}</strong>
+      <span style="color:var(--muted)">${d.team}</span>
+    </div>`
+  ).join('');
+}
+
+// ── Replay canvas renderer ────────────────────────────────────────────────────
+function repRenderFrame() {
+  repRafId = requestAnimationFrame(repRenderFrame);
+  const canvas = document.getElementById('rep-canvas');
+  if (!canvas) return;
+  const ctx = canvas.getContext('2d');
+  const W = canvas.width, H = canvas.height;
+  ctx.clearRect(0, 0, W, H);
+
+  const td = repTrackData;
+  if (!td) {
+    ctx.fillStyle = '#0d0d0d';
+    ctx.fillRect(0, 0, W, H);
+    ctx.fillStyle = '#444'; ctx.font = '13px system-ui'; ctx.textAlign = 'center';
+    ctx.fillText('Waiting for track data…', W/2, H/2);
+    return;
+  }
+
+  const { x, y, xMin, xMax, yMin, yMax } = td;
+  const pad = 36;
+  const scale = Math.min((W-2*pad)/(xMax-xMin), (H-2*pad)/(yMax-yMin));
+  const offX = (W-(xMax-xMin)*scale)/2, offY = (H-(yMax-yMin)*scale)/2;
+  const tc = (tx,ty) => ({ cx: offX+(tx-xMin)*scale, cy: H-(offY+(ty-yMin)*scale) });
+
+  // Track outline
+  ctx.lineCap='round'; ctx.lineJoin='round';
+  ctx.strokeStyle='#111'; ctx.lineWidth=14;
+  ctx.beginPath();
+  const s = tc(x[0],y[0]); ctx.moveTo(s.cx,s.cy);
+  for(let i=1;i<x.length;i++){const p=tc(x[i],y[i]);ctx.lineTo(p.cx,p.cy);}
+  ctx.closePath(); ctx.stroke();
+  ctx.strokeStyle='#2a2a2a'; ctx.lineWidth=10; ctx.stroke();
+  ctx.strokeStyle='#555'; ctx.lineWidth=3; ctx.setLineDash([12,10]); ctx.stroke(); ctx.setLineDash([]);
+
+  // Start/finish
+  const sf = tc(x[0],y[0]);
+  ctx.fillStyle='#e10600'; ctx.fillRect(sf.cx-6,sf.cy-3,12,6);
+
+  // Cars
+  Object.entries(repPositions).forEach(([num, pos]) => {
+    if (!pos || !pos.X) return;
+    const d = repDrivers[num] || {};
+    const color = d.color ? '#'+d.color : '#aaa';
+    const {cx,cy} = tc(pos.X, pos.Y);
+    ctx.shadowColor=color; ctx.shadowBlur=8;
+    ctx.fillStyle = pos.Status === 'OffTrack' ? '#555' : color;
+    ctx.beginPath(); ctx.arc(cx,cy,6,0,Math.PI*2); ctx.fill();
+    ctx.shadowBlur=0;
+    ctx.fillStyle='#fff'; ctx.font='bold 8px monospace'; ctx.textAlign='center';
+    ctx.fillText(d.code||num, cx, cy-10);
+  });
+}
+
 function renderRC() {
   const body = document.getElementById('rc-body');
   if (!liveState.rcMessages.length) { body.innerHTML = '<div style="color:var(--muted);font-size:12px">No messages yet</div>'; return; }
