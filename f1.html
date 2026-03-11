@@ -1316,7 +1316,7 @@ function replayLoad() {
   repDrivers = {}; repTrackData = null; repPositions = {};
   document.getElementById('rep-controls').style.display = 'none';
   document.getElementById('rep-legend').innerHTML = '<div style="color:var(--muted);font-size:12px;padding:8px">Loading…</div>';
-  repSetStatus('loading', `Loading ${year} Round ${round} ${session} via FastF1… (may take 30–60s first time)`);
+  repSetStatus('loading', `Loading ${year} Round ${round} ${session} via FastF1… (first download can take 2–5 min)`);
 
   // Connect (or reuse) proxy WebSocket
   if (!repConnection || repConnection.readyState !== WebSocket.OPEN) {
