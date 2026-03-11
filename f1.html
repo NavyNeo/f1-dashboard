@@ -622,6 +622,16 @@ let trackData = null;       // {x[], y[], xMin, xMax, yMin, yMax, rotation, circ
 let livePositions = {};     // num -> {X, Y, Z, Status}
 let trackRafId = null;
 
+// Replay state
+let repConnection = null;         // WebSocket to proxy
+let repPlaying = false;
+let repDuration = 0;              // session duration in seconds
+let repCurrentT = 0;
+let repDrivers = {};              // num -> {code, team, color}
+let repTrackData = null;
+let repPositions = {};
+let repRafId = null;
+
 // ═══════════════════════════════════════════════════════════════
 // INIT
 // ═══════════════════════════════════════════════════════════════
