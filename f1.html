@@ -421,8 +421,13 @@
   }
   #rep-progress { height: 100%; background: var(--red); border-radius: 2px; width: 0%; transition: width 0.15s linear; pointer-events: none; }
   #rep-time { font-family: 'JetBrains Mono', monospace; font-size: 12px; color: var(--t2); white-space: nowrap; }
-  .rep-status { font-family: 'Barlow Condensed', sans-serif; font-size: 13px; font-weight: 600; letter-spacing: 0.5px; color: var(--t2); padding: 6px 0; min-height: 22px; }
+  .rep-status { font-family: 'Barlow Condensed', sans-serif; font-size: 13px; font-weight: 600; letter-spacing: 0.5px; color: var(--t2); padding: 6px 0 4px; min-height: 22px; }
   .rep-status.error { color: #ff6b6b; }
+  .load-bar-wrap { height: 3px; background: var(--s3); border-radius: 2px; margin: 2px 0 8px; overflow: hidden; display: none; }
+  .load-bar-wrap.active { display: block; }
+  .load-bar-fill { height: 100%; background: var(--red); border-radius: 2px; width: 0%; transition: width 0.5s ease; }
+  .load-bar-fill.indeterminate { width: 35% !important; animation: load-shimmer 1.6s ease-in-out infinite; transition: none; }
+  @keyframes load-shimmer { 0% { transform: translateX(-120%); } 100% { transform: translateX(380%); } }
   .driver-legend { display: flex; flex-direction: column; padding: 6px 4px; }
   .driver-legend-item { display: flex; align-items: center; gap: 10px; font-size: 13px; padding: 7px 12px; border-radius: 2px; }
   .driver-legend-item:hover { background: var(--s2); }
@@ -661,6 +666,7 @@
     <span id="rep-time">0:00 / 0:00</span>
   </div>
   <div class="rep-status" id="rep-status">Select a session above and click Load Session. proxy.py must be running.</div>
+  <div class="load-bar-wrap" id="load-bar-wrap"><div class="load-bar-fill" id="load-bar-fill"></div></div>
 
   <div class="replay-layout">
     <div class="track-panel">
