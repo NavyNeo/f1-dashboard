@@ -1345,7 +1345,7 @@ function repOnMessage(e) {
   try {
     const { topic, data } = JSON.parse(e.data);
     if (topic === '__replay_status__') {
-      repSetStatus(data.state, data.msg);
+      repSetStatus(data.state, data.msg, data.pct);
       if (data.state === 'ready' || data.state === 'finished') {
         const btn = document.getElementById('rep-play-btn');
         btn.textContent = data.state === 'finished' ? '↩ Replay' : '▶ Play';
@@ -1368,11 +1368,41 @@ function repOnMessage(e) {
   } catch(err) {}
 }
 
-function repSetStatus(state, msg) {
+function repSetStatus(state, msg, pct) {
   const el = document.getElementById('rep-status');
   el.className = 'rep-status' + (state === 'error' ? ' error' : '');
   const icons = { loading:'⏳', ready:'✅', error:'❌', finished:'🏁' };
   el.textContent = (icons[state] || 'ℹ️') + ' ' + msg;
+  repSetProgress(state, pct);
+}
+
+function repSetProgress(state, pct) {
+  const wrap = document.getElementById('load-bar-wrap');
+  const fill = document.getElementById('load-bar-fill');
+  if (state === 'loading') {
+    wrap.classList.add('active');
+    if (pct === undefined || pct === null || pct < 0) {
+      fill.classList.add('indeterminate');
+    } else {
+      fill.classList.remove('indeterminate');
+      fill.style.background = 'var(--red)';
+      fill.style.width = Math.min(100, pct) + '%';
+    }
+  } else if (state === 'ready' || state === 'finished') {
+    wrap.classList.add('active');
+    fill.classList.remove('indeterminate');
+    fill.style.background = 'var(--green)';
+    fill.style.width = '100%';
+    setTimeout(() => { wrap.classList.remove('active'); fill.style.width = '0%'; }, 2500);
+  } else if (state === 'error') {
+    wrap.classList.add('active');
+    fill.classList.remove('indeterminate');
+    fill.style.background = '#ff6b6b';
+    fill.style.width = '100%';
+  } else {
+    wrap.classList.remove('active');
+    fill.style.width = '0%';
+  }
 }
 
 function replayToggle() {
