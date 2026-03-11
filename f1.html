@@ -1003,6 +1003,135 @@ function updateLiveLapInfo() {
   else if (liveState.lap) el.textContent = `Lap ${liveState.lap}`;
 }
 
+// ═══════════════════════════════════════════════════════════════
+// TRACK MAP
+// ═══════════════════════════════════════════════════════════════
+
+function initTrackCanvas() {
+  if (trackRafId) return;
+  trackRafId = requestAnimationFrame(renderTrackFrame);
+}
+
+function renderTrackFrame() {
+  trackRafId = requestAnimationFrame(renderTrackFrame);
+  const canvas = document.getElementById('track-canvas');
+  if (!canvas) return;
+  const ctx = canvas.getContext('2d');
+  const W = canvas.width, H = canvas.height;
+  ctx.clearRect(0, 0, W, H);
+
+  if (!trackData) {
+    ctx.fillStyle = '#1a1a1a';
+    ctx.fillRect(0, 0, W, H);
+    ctx.fillStyle = '#444';
+    ctx.font = '13px system-ui';
+    ctx.textAlign = 'center';
+    ctx.fillText('Track outline loads when session starts', W/2, H/2 - 8);
+    ctx.fillStyle = '#333';
+    ctx.font = '11px system-ui';
+    ctx.fillText('(proxy.py must be running)', W/2, H/2 + 12);
+    return;
+  }
+
+  const { x, y, xMin, xMax, yMin, yMax } = trackData;
+  const pad = 36;
+  const scaleX = (W - 2*pad) / (xMax - xMin);
+  const scaleY = (H - 2*pad) / (yMax - yMin);
+  const scale  = Math.min(scaleX, scaleY);
+  const offX   = (W - (xMax - xMin) * scale) / 2;
+  const offY   = (H - (yMax - yMin) * scale) / 2;
+
+  function toCanvas(tx, ty) {
+    return {
+      cx: offX + (tx - xMin) * scale,
+      cy: H - (offY + (ty - yMin) * scale),  // flip Y (track coords: Y-up)
+    };
+  }
+
+  // ── Track outline ───────────────────────────────────────────
+  ctx.lineCap = 'round';
+  ctx.lineJoin = 'round';
+
+  // Shadow / outer edge
+  ctx.strokeStyle = '#111';
+  ctx.lineWidth = 14;
+  ctx.beginPath();
+  const p0 = toCanvas(x[0], y[0]);
+  ctx.moveTo(p0.cx, p0.cy);
+  for (let i = 1; i < x.length; i++) {
+    const p = toCanvas(x[i], y[i]);
+    ctx.lineTo(p.cx, p.cy);
+  }
+  ctx.closePath();
+  ctx.stroke();
+
+  // Track surface
+  ctx.strokeStyle = '#2a2a2a';
+  ctx.lineWidth = 10;
+  ctx.stroke();
+
+  // White centre line
+  ctx.strokeStyle = '#555';
+  ctx.lineWidth = 3;
+  ctx.setLineDash([12, 10]);
+  ctx.stroke();
+  ctx.setLineDash([]);
+
+  // Start/finish marker (first point)
+  const sf = toCanvas(x[0], y[0]);
+  ctx.fillStyle = '#e10600';
+  ctx.fillRect(sf.cx - 6, sf.cy - 3, 12, 6);
+
+  // ── Cars ────────────────────────────────────────────────────
+  const carPositions = Object.entries(livePositions);
+  if (carPositions.length === 0) {
+    document.getElementById('track-info').textContent = 'Waiting for car position data…';
+  } else {
+    document.getElementById('track-info').textContent =
+      `${carPositions.length} cars tracked · ${trackData.circuit || ''}`;
+  }
+
+  carPositions.forEach(([num, pos]) => {
+    if (!pos || pos.Status === 'OffTrack' || (!pos.X && !pos.Y)) return;
+    const drv = liveState.drivers[num] || {};
+    const colour = drv.TeamColour ? '#' + drv.TeamColour : '#aaaaaa';
+    const { cx, cy } = toCanvas(pos.X, pos.Y);
+
+    // Glow
+    ctx.shadowColor = colour;
+    ctx.shadowBlur = 8;
+
+    // Car dot
+    ctx.fillStyle = colour;
+    ctx.beginPath();
+    ctx.arc(cx, cy, 6, 0, Math.PI * 2);
+    ctx.fill();
+
+    ctx.shadowBlur = 0;
+
+    // Driver code
+    const code = drv.Tla || num;
+    ctx.fillStyle = '#fff';
+    ctx.font = 'bold 8px monospace';
+    ctx.textAlign = 'center';
+    ctx.fillText(code, cx, cy - 10);
+  });
+}
+
+function handleTrackData(data) {
+  trackData = data;
+  document.getElementById('track-status-badge').textContent =
+    data.circuit ? `✓ ${data.circuit}` : '✓ Loaded';
+  document.getElementById('track-status-badge').style.color = '#00e676';
+  initTrackCanvas();
+}
+
+function handlePositionData(data) {
+  // data format: { num: {X, Y, Z, Status}, … }
+  Object.assign(livePositions, data);
+  if (!trackRafId) initTrackCanvas();
+}
+
 function renderRC() {
   const body = document.getElementById('rc-body');
   if (!liveState.rcMessages.length) { body.innerHTML = '<div style="color:var(--muted);font-size:12px">No messages yet</div>'; return; }
