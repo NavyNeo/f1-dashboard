@@ -9,63 +9,88 @@
 <link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:ital,wght@0,400;0,600;0,700;0,800;0,900;1,700&family=Barlow:wght@400;500;600&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
 <style>
   :root {
-    --red: #e10600;
-    --red-dark: #a80400;
-    --bg: #0d0d0d;
-    --card: #161616;
-    --card2: #1e1e1e;
-    --border: #2a2a2a;
-    --text: #f0f0f0;
-    --muted: #888;
-    --gold: #ffd700;
-    --silver: #c0c0c0;
-    --bronze: #cd7f32;
-    --soft: #ff3333;
-    --medium: #ffd700;
-    --hard: #ebebeb;
-    --inter: #39b54a;
-    --wet: #0067ff;
-    --green: #00e676;
-    --purple: #b44fff;
+    --red:    #e10600;
+    --bg:     #13131a;
+    --s1:     #1c1c26;
+    --s2:     #242432;
+    --s3:     #2d2d3e;
+    --border: rgba(255,255,255,0.08);
+    --border-s: rgba(255,255,255,0.15);
+    --text:   #ffffff;
+    --t2:     #9898b0;
+    --t3:     #52526a;
+    --gold:   #c9a84c;
+    --silver: #888899;
+    --bronze: #7a4e28;
+    --green:  #00d2be;
+    --purple: #9c6bc7;
+    --soft:   #e8002d;
+    --medium: #ffd300;
+    --hard:   #d8d8d8;
+    --inter:  #39b54a;
+    --wet:    #0067ff;
   }
+
   * { box-sizing: border-box; margin: 0; padding: 0; }
+
   body {
     background: var(--bg);
     color: var(--text);
-    font-family: 'Segoe UI', system-ui, sans-serif;
+    font-family: 'Barlow', system-ui, sans-serif;
     font-size: 14px;
     min-height: 100vh;
+    -webkit-font-smoothing: antialiased;
   }
 
   /* ── Header ── */
   header {
-    background: var(--red);
-    padding: 0 24px;
-    height: 56px;
+    background: var(--s1);
+    border-bottom: 1px solid var(--border);
+    height: 52px;
     display: flex;
-    align-items: center;
-    justify-content: space-between;
+    align-items: stretch;
     position: sticky;
     top: 0;
     z-index: 100;
-    box-shadow: 0 2px 16px rgba(225,6,0,0.4);
   }
-  header .logo {
-    font-size: 20px;
-    font-weight: 800;
-    letter-spacing: 2px;
+  .header-accent { width: 4px; background: var(--red); flex-shrink: 0; }
+  .header-inner {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0 24px;
+  }
+  .logo { display: flex; align-items: baseline; gap: 14px; }
+  .logo-f1 {
+    font-family: 'Barlow Condensed', sans-serif;
+    font-weight: 900;
+    font-size: 24px;
+    letter-spacing: -1px;
+    color: var(--red);
+    line-height: 1;
+  }
+  .logo-title {
+    font-family: 'Barlow Condensed', sans-serif;
+    font-weight: 600;
+    font-size: 13px;
+    letter-spacing: 3px;
     text-transform: uppercase;
+    color: var(--t3);
   }
-  header .logo span { opacity: 0.7; font-weight: 400; font-size: 13px; letter-spacing: 1px; margin-left: 10px; }
-  #clock { font-size: 13px; opacity: 0.85; font-variant-numeric: tabular-nums; }
+  #clock {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 12px;
+    color: var(--t2);
+    letter-spacing: 1px;
+  }
 
   /* ── Nav ── */
   nav {
-    background: var(--card);
+    background: var(--s1);
     border-bottom: 1px solid var(--border);
     display: flex;
-    gap: 0;
-    padding: 0 16px;
+    padding: 0 20px;
     overflow-x: auto;
     scrollbar-width: none;
   }
@@ -73,313 +98,361 @@
   .nav-btn {
     background: none;
     border: none;
-    color: var(--muted);
+    border-bottom: 2px solid transparent;
+    color: var(--t3);
     cursor: pointer;
+    font-family: 'Barlow Condensed', sans-serif;
     font-size: 13px;
-    font-weight: 600;
-    padding: 14px 20px;
-    border-bottom: 3px solid transparent;
+    font-weight: 700;
+    letter-spacing: 1.5px;
+    padding: 12px 20px 10px;
+    text-transform: uppercase;
+    transition: color 0.15s, border-color 0.15s;
     white-space: nowrap;
-    transition: color 0.2s, border-color 0.2s;
-    letter-spacing: 0.5px;
   }
-  .nav-btn:hover { color: var(--text); }
-  .nav-btn.active { color: var(--red); border-bottom-color: var(--red); }
+  .nav-btn:hover { color: var(--t2); }
+  .nav-btn.active { color: var(--text); border-bottom-color: var(--red); }
+  .nav-live-dot {
+    display: inline-block;
+    width: 5px; height: 5px;
+    border-radius: 50%;
+    background: var(--red);
+    margin-left: 6px;
+    vertical-align: middle;
+    animation: pulse 1.5s ease-in-out infinite;
+  }
 
   /* ── Layout ── */
-  .tab { display: none; padding: 24px; max-width: 1400px; margin: 0 auto; }
+  .tab { display: none; padding: 28px 24px; max-width: 1500px; margin: 0 auto; }
   .tab.active { display: block; }
+
+  /* ── Page header ── */
+  .page-header { margin-bottom: 24px; }
+  .page-header h1 {
+    font-family: 'Barlow Condensed', sans-serif;
+    font-size: 34px;
+    font-weight: 900;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+    line-height: 1;
+  }
+  .page-header p { color: var(--t2); font-size: 13px; margin-top: 6px; }
+  /* keep old class names working */
+  .section-title {
+    font-family: 'Barlow Condensed', sans-serif;
+    font-size: 34px; font-weight: 900;
+    letter-spacing: 1px; text-transform: uppercase; line-height: 1;
+    margin-bottom: 6px;
+  }
+  .section-sub { color: var(--t2); font-size: 13px; margin-bottom: 24px; }
 
   /* ── Controls bar ── */
   .controls {
     display: flex;
     align-items: center;
-    gap: 10px;
+    gap: 8px;
     flex-wrap: wrap;
-    margin-bottom: 16px;
-  }
-  .controls label { color: var(--muted); font-size: 12px; font-weight: 600; text-transform: uppercase; letter-spacing: 1px; }
-  select, input[type=text], input[type=number] {
-    background: var(--card2);
+    margin-bottom: 20px;
+    padding: 12px 16px;
+    background: var(--s1);
     border: 1px solid var(--border);
-    border-radius: 6px;
+    border-radius: 3px;
+  }
+  .controls label {
+    color: var(--t3);
+    font-family: 'Barlow Condensed', sans-serif;
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 1.5px;
+    text-transform: uppercase;
+  }
+  select, input[type=text], input[type=number] {
+    background: var(--s2);
+    border: 1px solid var(--border);
+    border-radius: 3px;
     color: var(--text);
-    padding: 7px 12px;
+    padding: 6px 10px;
     font-size: 13px;
+    font-family: 'Barlow', sans-serif;
     outline: none;
     cursor: pointer;
-    transition: border-color 0.2s;
+    transition: border-color 0.15s;
   }
+  select:hover, input:hover { border-color: var(--border-s); }
   select:focus, input:focus { border-color: var(--red); }
   .btn {
     background: var(--red);
     border: none;
-    border-radius: 6px;
+    border-radius: 3px;
     color: #fff;
     cursor: pointer;
+    font-family: 'Barlow Condensed', sans-serif;
     font-size: 13px;
-    font-weight: 600;
-    padding: 7px 18px;
-    transition: background 0.2s, transform 0.1s;
-    letter-spacing: 0.5px;
-  }
-  .btn:hover { background: #ff1a0e; }
-  .btn:active { transform: scale(0.97); }
-  .btn.secondary {
-    background: var(--card2);
-    color: var(--muted);
-    border: 1px solid var(--border);
-  }
-  .btn.secondary:hover { color: var(--text); background: #2a2a2a; }
-
-  /* ── Section title ── */
-  .section-title {
-    font-size: 22px;
-    font-weight: 800;
-    letter-spacing: 1px;
-    margin-bottom: 6px;
-  }
-  .section-sub { color: var(--muted); font-size: 13px; margin-bottom: 20px; }
-
-  /* ── Table ── */
-  .table-wrap { overflow-x: auto; border-radius: 10px; border: 1px solid var(--border); }
-  table { width: 100%; border-collapse: collapse; }
-  th {
-    background: var(--card2);
-    color: var(--red);
-    font-size: 11px;
     font-weight: 700;
     letter-spacing: 1px;
-    padding: 10px 14px;
+    padding: 7px 18px;
+    text-transform: uppercase;
+    transition: background 0.15s, opacity 0.15s;
+  }
+  .btn:hover { background: #ff1f0e; }
+  .btn:active { opacity: 0.8; }
+  .btn.secondary {
+    background: var(--s2);
+    color: var(--t2);
+    border: 1px solid var(--border);
+  }
+  .btn.secondary:hover { color: var(--text); border-color: var(--border-s); background: var(--s3); }
+
+  /* ── Table ── */
+  .table-wrap { overflow-x: auto; border: 1px solid var(--border); border-radius: 3px; }
+  table { width: 100%; border-collapse: collapse; }
+  thead tr { border-bottom: 1px solid var(--border-s); }
+  th {
+    background: var(--s2);
+    color: var(--t3);
+    font-family: 'Barlow Condensed', sans-serif;
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 1.5px;
+    padding: 10px 12px;
     text-align: left;
     text-transform: uppercase;
-    border-bottom: 1px solid var(--border);
     white-space: nowrap;
   }
   td {
-    padding: 9px 14px;
-    border-bottom: 1px solid #1d1d1d;
+    padding: 0 12px;
+    height: 40px;
+    border-bottom: 1px solid var(--border);
     font-size: 13px;
     white-space: nowrap;
+    vertical-align: middle;
   }
   tr:last-child td { border-bottom: none; }
-  tr:hover td { background: rgba(255,255,255,0.02); }
-  tr.zebra td { background: rgba(255,255,255,0.01); }
+  tbody tr:hover td { background: rgba(255,255,255,0.025); }
+  tr.zebra td { background: rgba(255,255,255,0.012); }
 
-  /* ── Status badges ── */
+  /* ── Badges ── */
   .badge {
-    display: inline-block;
-    border-radius: 4px;
+    display: inline-flex;
+    align-items: center;
+    border-radius: 2px;
+    font-family: 'Barlow Condensed', sans-serif;
     font-size: 11px;
     font-weight: 700;
-    padding: 2px 7px;
-    letter-spacing: 0.5px;
+    padding: 2px 8px;
+    letter-spacing: 1px;
     text-transform: uppercase;
   }
-  .badge-completed { background: #1a2e1a; color: #5a9e5a; }
-  .badge-upcoming { background: #1a1a2e; color: #5a7aae; }
-  .badge-today { background: var(--red); color: white; }
-  .badge-live { background: var(--red); color: white; animation: pulse 1.5s infinite; }
-  @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.6} }
+  .badge-completed { background: rgba(255,255,255,0.06); color: var(--t2); }
+  .badge-upcoming  { background: rgba(0,103,255,0.12);   color: #6090e8; }
+  .badge-today     { background: var(--red); color: white; }
+  @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.35} }
 
-  /* ── Pos highlights ── */
-  .pos-1 { color: var(--gold); font-weight: 700; }
+  /* ── Position highlights ── */
+  .pos-1 { color: var(--gold);   font-weight: 700; }
   .pos-2 { color: var(--silver); font-weight: 700; }
   .pos-3 { color: var(--bronze); font-weight: 700; }
 
-  /* ── Tyre dots ── */
+  /* ── Tyre badges ── */
   .tyre {
     display: inline-flex;
     align-items: center;
     justify-content: center;
     width: 22px; height: 22px;
     border-radius: 50%;
-    font-size: 10px;
+    font-family: 'Barlow Condensed', sans-serif;
+    font-size: 11px;
     font-weight: 800;
-    border: 2px solid;
+    border: 1.5px solid;
   }
-  .tyre-S { background: rgba(255,51,51,0.15); border-color: var(--soft); color: var(--soft); }
-  .tyre-M { background: rgba(255,215,0,0.12); border-color: var(--medium); color: var(--medium); }
-  .tyre-H { background: rgba(235,235,235,0.08); border-color: var(--hard); color: var(--hard); }
-  .tyre-I { background: rgba(57,181,74,0.12); border-color: var(--inter); color: var(--inter); }
-  .tyre-W { background: rgba(0,103,255,0.12); border-color: var(--wet); color: var(--wet); }
+  .tyre-S { background: rgba(232,0,45,0.12);   border-color: var(--soft);   color: var(--soft); }
+  .tyre-M { background: rgba(255,211,0,0.1);   border-color: var(--medium); color: var(--medium); }
+  .tyre-H { background: rgba(216,216,216,0.07); border-color: var(--hard);   color: var(--hard); }
+  .tyre-I { background: rgba(57,181,74,0.1);   border-color: var(--inter);  color: var(--inter); }
+  .tyre-W { background: rgba(0,103,255,0.1);   border-color: var(--wet);    color: var(--wet); }
 
-  /* ── Lap time colors ── */
-  .lap-fastest { color: var(--purple); font-weight: 700; }
-  .lap-personal { color: var(--green); }
-  .sector-fastest { color: var(--purple); font-weight: 700; }
+  /* ── Lap time colours ── */
+  .lap-fastest    { color: var(--purple); font-weight: 600; }
+  .lap-personal   { color: var(--green); }
+  .sector-fastest { color: var(--purple); }
 
-  /* ── Standings layout ── */
-  .standings-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; }
-  @media(max-width: 900px) { .standings-grid { grid-template-columns: 1fr; } }
-  .card { background: var(--card); border: 1px solid var(--border); border-radius: 10px; overflow: hidden; }
-  .card-title { padding: 14px 16px; font-size: 13px; font-weight: 700; text-transform: uppercase; letter-spacing: 1px; color: var(--muted); border-bottom: 1px solid var(--border); background: var(--card2); }
+  /* ── Cards ── */
+  .card { background: var(--s1); border: 1px solid var(--border); border-radius: 3px; overflow: hidden; }
+  .card-title {
+    padding: 11px 16px;
+    font-family: 'Barlow Condensed', sans-serif;
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 1.5px;
+    text-transform: uppercase;
+    color: var(--t3);
+    border-bottom: 1px solid var(--border);
+    background: var(--s2);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+
+  /* ── Standings ── */
+  .standings-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+  @media(max-width:900px){ .standings-grid{ grid-template-columns:1fr; } }
 
   /* ── Loading ── */
-  .loading {
-    display: none;
-    align-items: center;
-    gap: 10px;
-    padding: 32px;
-    color: var(--muted);
-    font-size: 13px;
-  }
+  .loading { display: none; align-items: center; gap: 10px; padding: 40px 16px; color: var(--t2); font-size: 13px; }
   .loading.show { display: flex; }
   .spinner {
-    width: 18px; height: 18px;
-    border: 2px solid var(--border);
+    width: 16px; height: 16px;
+    border: 2px solid var(--s3);
     border-top-color: var(--red);
     border-radius: 50%;
-    animation: spin 0.7s linear infinite;
+    animation: spin 0.6s linear infinite;
     flex-shrink: 0;
   }
   @keyframes spin { to { transform: rotate(360deg); } }
 
-  /* ── Empty state ── */
-  .empty {
-    padding: 48px;
-    text-align: center;
-    color: var(--muted);
-  }
-  .empty .icon { font-size: 40px; margin-bottom: 12px; }
+  /* ── Empty ── */
+  .empty { padding: 56px 24px; text-align: center; color: var(--t3); line-height: 2; }
+  .empty .icon { font-size: 28px; display: block; margin-bottom: 10px; opacity: 0.4; }
 
-  /* ── Live timing specific ── */
-  .live-header {
-    display: flex;
-    align-items: center;
-    gap: 16px;
-    flex-wrap: wrap;
-    margin-bottom: 16px;
-    padding: 16px;
-    background: var(--card);
-    border: 1px solid var(--border);
-    border-radius: 10px;
-  }
-  .conn-dot {
-    width: 10px; height: 10px;
-    border-radius: 50%;
-    background: #444;
-    flex-shrink: 0;
-  }
-  .conn-dot.connected { background: var(--green); box-shadow: 0 0 8px var(--green); }
-  .conn-dot.connecting { background: yellow; animation: pulse 1s infinite; }
-  .conn-dot.error { background: var(--red); }
-  #live-conn-label { font-size: 13px; font-weight: 600; color: var(--muted); }
-  #live-session-name { font-size: 15px; font-weight: 700; flex: 1; }
-  #live-lap-info { color: var(--muted); font-size: 13px; }
-  #live-track-status { font-size: 13px; font-weight: 600; }
-  /* ── Track map ── */
-  .live-layout {
-    display: grid;
-    grid-template-columns: 380px 1fr;
-    gap: 16px;
-    align-items: start;
-  }
-  @media(max-width: 1000px) { .live-layout { grid-template-columns: 1fr; } }
-  .track-panel {
-    background: var(--card);
-    border: 1px solid var(--border);
-    border-radius: 10px;
-    overflow: hidden;
-    position: sticky;
-    top: 70px;
-  }
-  .track-panel .card-title { padding: 12px 16px; font-size: 11px; text-transform: uppercase; letter-spacing: 1px; color: var(--muted); border-bottom: 1px solid var(--border); background: var(--card2); display: flex; justify-content: space-between; align-items: center; }
-  #track-canvas { display: block; width: 100%; aspect-ratio: 1; background: #060608; }
-  #track-info { padding: 8px 14px; font-size: 11px; color: var(--muted); border-top: 1px solid var(--border); min-height: 26px; }
-  .timing-panel { display: flex; flex-direction: column; gap: 12px; min-width: 0; }
-
-  .rc-panel {
-    background: var(--card);
-    border: 1px solid var(--border);
-    border-radius: 10px;
-    padding: 14px 16px;
-    margin-top: 16px;
-    max-height: 140px;
-    overflow-y: auto;
-  }
-  .rc-panel h4 { font-size: 11px; text-transform: uppercase; letter-spacing: 1px; color: var(--muted); margin-bottom: 10px; }
-  .rc-msg { font-size: 12px; color: #bbb; padding: 3px 0; border-bottom: 1px solid #1d1d1d; }
-  .rc-msg:last-child { border-bottom: none; }
-  .rc-msg .rc-time { color: var(--muted); margin-right: 8px; font-variant-numeric: tabular-nums; }
-
-  /* ── Status bar ── */
-  .status-row { color: var(--muted); font-size: 12px; padding: 8px 0; }
+  /* ── Status row ── */
+  .status-row { color: var(--t2); font-size: 12px; padding: 6px 0 14px; }
   .status-row span { color: var(--text); font-weight: 600; }
 
-  /* ── Next race countdown ── */
+  /* ── Next race card ── */
   .next-race-card {
-    background: var(--card);
+    background: var(--s1);
     border: 1px solid var(--border);
     border-left: 3px solid var(--red);
-    border-radius: 10px;
-    padding: 18px 24px;
+    border-radius: 3px;
+    padding: 20px 28px;
     margin-bottom: 24px;
     display: flex;
     align-items: center;
-    gap: 32px;
+    gap: 40px;
     flex-wrap: wrap;
   }
-  .next-race-card .label { font-size: 10px; text-transform: uppercase; letter-spacing: 1px; color: var(--muted); margin-bottom: 4px; }
-  .next-race-card .value { font-size: 18px; font-weight: 700; }
-  .countdown { display: flex; gap: 16px; }
+  .next-race-card .label {
+    font-family: 'Barlow Condensed', sans-serif;
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    color: var(--t3);
+    margin-bottom: 5px;
+  }
+  .next-race-card .value { font-size: 17px; font-weight: 600; }
+  .countdown { display: flex; gap: 20px; }
   .countdown-unit { text-align: center; }
-  .countdown-unit .num { font-size: 28px; font-weight: 800; font-variant-numeric: tabular-nums; color: var(--red); line-height: 1; }
-  .countdown-unit .unit { font-size: 10px; text-transform: uppercase; color: var(--muted); letter-spacing: 1px; }
+  .countdown-unit .num {
+    font-family: 'Barlow Condensed', sans-serif;
+    font-size: 40px;
+    font-weight: 900;
+    font-variant-numeric: tabular-nums;
+    color: var(--red);
+    line-height: 1;
+    display: block;
+  }
+  .countdown-unit .unit {
+    font-family: 'Barlow Condensed', sans-serif;
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    color: var(--t3);
+  }
 
   /* ── Scrollbar ── */
-  ::-webkit-scrollbar { width: 6px; height: 6px; }
-  ::-webkit-scrollbar-track { background: var(--bg); }
-  ::-webkit-scrollbar-thumb { background: #333; border-radius: 3px; }
-  ::-webkit-scrollbar-thumb:hover { background: #444; }
+  ::-webkit-scrollbar { width: 4px; height: 4px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb { background: var(--s3); border-radius: 2px; }
 
-  .driver-code { font-weight: 700; font-size: 13px; letter-spacing: 0.5px; }
-  .team-name { color: var(--muted); font-size: 12px; }
-  .gap-leader { color: var(--muted); font-size: 12px; }
-  .pit-status { font-size: 11px; font-weight: 700; }
-  .pit-status.inpit { color: yellow; }
-  .pit-status.pitout { color: cyan; }
-  .pit-status.retired { color: var(--red); }
+  /* ── Driver / data cells ── */
+  .driver-code { font-family: 'Barlow Condensed', sans-serif; font-weight: 800; font-size: 15px; letter-spacing: 0.5px; }
+  .team-name   { color: var(--t2); font-size: 12px; }
+  .gap-leader  { font-family: 'JetBrains Mono', monospace; color: var(--t2); font-size: 12px; }
+
+  /* ── Live header ── */
+  .live-header {
+    display: flex; align-items: center; gap: 16px; flex-wrap: wrap;
+    margin-bottom: 16px; padding: 12px 18px;
+    background: var(--s1); border: 1px solid var(--border); border-radius: 3px;
+  }
+  .conn-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--t3); flex-shrink: 0; }
+  .conn-dot.connected  { background: var(--green); box-shadow: 0 0 6px var(--green); }
+  .conn-dot.connecting { background: #ffd300; animation: pulse 1s infinite; }
+  .conn-dot.error      { background: var(--red); }
+  #live-conn-label    { font-family: 'Barlow Condensed', sans-serif; font-size: 12px; font-weight: 700; letter-spacing: 1px; text-transform: uppercase; color: var(--t2); }
+  #live-session-name  { font-family: 'Barlow Condensed', sans-serif; font-size: 18px; font-weight: 700; flex: 1; }
+  #live-lap-info      { font-family: 'JetBrains Mono', monospace; color: var(--t2); font-size: 12px; }
+  #live-track-status  { font-family: 'Barlow Condensed', sans-serif; font-size: 13px; font-weight: 700; letter-spacing: 0.5px; }
+
+  /* ── Track map ── */
+  .live-layout { display: grid; grid-template-columns: 380px 1fr; gap: 16px; align-items: start; }
+  @media(max-width:1000px){ .live-layout{ grid-template-columns:1fr; } }
+  .track-panel { background: var(--s1); border: 1px solid var(--border); border-radius: 3px; overflow: hidden; position: sticky; top: 66px; }
+  #track-canvas { display: block; width: 100%; aspect-ratio: 1; background: #09090f; }
+  #track-info { padding: 8px 14px; font-family: 'JetBrains Mono', monospace; font-size: 11px; color: var(--t3); border-top: 1px solid var(--border); min-height: 24px; }
+  .timing-panel { display: flex; flex-direction: column; gap: 12px; min-width: 0; }
+
+  /* ── RC panel ── */
+  .rc-panel { background: var(--s1); border: 1px solid var(--border); border-radius: 3px; padding: 12px 16px; max-height: 130px; overflow-y: auto; }
+  .rc-panel h4 { font-family: 'Barlow Condensed', sans-serif; font-size: 10px; font-weight: 700; letter-spacing: 2px; text-transform: uppercase; color: var(--t3); margin-bottom: 10px; }
+  .rc-msg { font-size: 12px; color: var(--t2); padding: 4px 0; border-bottom: 1px solid var(--border); }
+  .rc-msg:last-child { border-bottom: none; }
+  .rc-msg .rc-time { font-family: 'JetBrains Mono', monospace; font-size: 10px; color: var(--t3); margin-right: 8px; }
+
+  /* ── Pit status ── */
+  .pit-status { font-family: 'Barlow Condensed', sans-serif; font-size: 11px; font-weight: 700; letter-spacing: 1px; }
+  .pit-status.inpit   { color: #ffd300; }
+  .pit-status.pitout  { color: var(--green); }
+  .pit-status.retired { color: var(--t3); }
 
   /* ── Replay ── */
   .replay-layout { display: grid; grid-template-columns: 400px 1fr; gap: 16px; margin-top: 16px; align-items: start; }
   @media(max-width:1000px){ .replay-layout{ grid-template-columns:1fr; } }
   .replay-controls {
     display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
-    background: var(--card); border: 1px solid var(--border); border-radius: 10px;
-    padding: 14px 16px; margin-bottom: 12px;
+    background: var(--s1); border: 1px solid var(--border); border-radius: 3px;
+    padding: 12px 16px; margin-bottom: 12px;
   }
   .progress-wrap {
     flex: 1; min-width: 120px; cursor: pointer;
-    height: 6px; background: #2a2a2a; border-radius: 3px; position: relative;
+    height: 4px; background: var(--s3); border-radius: 2px; position: relative;
   }
-  #rep-progress { height: 100%; background: var(--red); border-radius: 3px; width: 0%; transition: width 0.15s linear; pointer-events: none; }
-  #rep-time { font-size: 12px; color: var(--muted); font-variant-numeric: tabular-nums; white-space: nowrap; }
-  .rep-status { font-size: 12px; color: var(--muted); padding: 6px 0; min-height: 20px; }
+  #rep-progress { height: 100%; background: var(--red); border-radius: 2px; width: 0%; transition: width 0.15s linear; pointer-events: none; }
+  #rep-time { font-family: 'JetBrains Mono', monospace; font-size: 12px; color: var(--t2); white-space: nowrap; }
+  .rep-status { font-family: 'Barlow Condensed', sans-serif; font-size: 13px; font-weight: 600; letter-spacing: 0.5px; color: var(--t2); padding: 6px 0; min-height: 22px; }
   .rep-status.error { color: #ff6b6b; }
-  .driver-legend { display: flex; flex-direction: column; gap: 6px; padding: 14px; }
-  .driver-legend-item { display: flex; align-items: center; gap: 8px; font-size: 12px; }
-  .legend-dot { width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0; }
-  .btn.play  { background: #00aa44; }
-  .btn.play:hover  { background: #00cc55; }
-  .btn.pause { background: #333; color: #ccc; border: 1px solid var(--border); }
-  .btn.pause:hover { background: #444; }
+  .driver-legend { display: flex; flex-direction: column; padding: 6px 4px; }
+  .driver-legend-item { display: flex; align-items: center; gap: 10px; font-size: 13px; padding: 7px 12px; border-radius: 2px; }
+  .driver-legend-item:hover { background: var(--s2); }
+  .legend-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+  .btn.play  { background: rgba(0,210,190,0.12); color: var(--green); border: 1px solid var(--green); }
+  .btn.play:hover  { background: rgba(0,210,190,0.2); }
+  .btn.pause { background: var(--s2); color: var(--t2); border: 1px solid var(--border); }
+  .btn.pause:hover { background: var(--s3); color: var(--text); }
 </style>
 </head>
 <body>
 
 <header>
-  <div class="logo">F1 <span>Dashboard</span></div>
-  <div id="clock"></div>
+  <div class="header-accent"></div>
+  <div class="header-inner">
+    <div class="logo">
+      <span class="logo-f1">F1</span>
+      <span class="logo-title">Timing Dashboard</span>
+    </div>
+    <div id="clock"></div>
+  </div>
 </header>
 
 <nav>
-  <button class="nav-btn active" onclick="showTab('schedule')">🗓 Schedule</button>
-  <button class="nav-btn" onclick="showTab('standings')">🏆 Standings</button>
-  <button class="nav-btn" onclick="showTab('results')">🏁 Results</button>
-  <button class="nav-btn" onclick="showTab('laps')">📊 Lap Times</button>
-  <button class="nav-btn" onclick="showTab('live')">🔴 Live Timing</button>
-  <button class="nav-btn" onclick="showTab('replay')">📼 Replay</button>
+  <button class="nav-btn active" onclick="showTab('schedule')">Schedule</button>
+  <button class="nav-btn" onclick="showTab('standings')">Standings</button>
+  <button class="nav-btn" onclick="showTab('results')">Results</button>
+  <button class="nav-btn" onclick="showTab('laps')">Lap Times</button>
+  <button class="nav-btn" onclick="showTab('live')">Live<span class="nav-live-dot"></span></button>
+  <button class="nav-btn" onclick="showTab('replay')">Replay</button>
 </nav>
 
 <!-- ════════════════════════════════════════════════════════════ SCHEDULE -->
