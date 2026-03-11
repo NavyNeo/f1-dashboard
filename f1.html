@@ -657,6 +657,15 @@
     <button class="btn secondary" onclick="liveDisconnect()">■ Disconnect</button>
   </div>
 
+  <div class="controls" style="margin-bottom:0">
+    <label>Load Track</label>
+    <select id="lm-year"></select>
+    <label>Round</label>
+    <input type="number" id="lm-round" value="1" min="1" max="24" style="width:70px">
+    <button class="btn" onclick="lmLoadTrack()">Load Track Outline</button>
+    <span id="lm-track-load-status" style="font-size:12px;color:var(--muted)"></span>
+  </div>
+
   <div class="livemap-layout">
     <div class="track-panel" style="position:sticky;top:66px">
       <div class="card-title">
@@ -766,7 +775,7 @@ let repRafId = null;
 
 document.addEventListener('DOMContentLoaded', () => {
   // Populate year selects
-  const selects = ['sched-year','stand-year','res-year','lap-year','rep-year'];
+  const selects = ['sched-year','stand-year','res-year','lap-year','rep-year','lm-year'];
   selects.forEach(id => {
     const sel = document.getElementById(id);
     for (let y = CURRENT_YEAR; y >= 2018; y--) {
@@ -1167,6 +1176,11 @@ function deepMerge(base, update) {
 function applyLiveMessage(topic, data) {
   if (!data || typeof data !== 'object') return;
   if (topic === '__track__') { handleTrackData(data); return; }
+  if (topic === '__track_error__') {
+    const el = document.getElementById('lm-track-load-status');
+    if (el) { el.textContent = 'Error: ' + (data.msg || 'Unknown'); el.style.color = '#ff6b6b'; }
+    return;
+  }
   if (topic === 'Position')  { handlePositionData(data); return; }
   if (topic === 'DriverList') {
     Object.entries(data).forEach(([num, info]) => {
@@ -1368,6 +1382,32 @@ function renderTrackToCanvas(canvasId, infoId, dotR, labelOffset) {
     ctx.textAlign = 'center';
     ctx.fillText(code, cx, cy - dotR - 3);
   });
+}
+
+function lmLoadTrack() {
+  const year  = document.getElementById('lm-year').value;
+  const round = document.getElementById('lm-round').value;
+  const statusEl = document.getElementById('lm-track-load-status');
+  if (!year || !round) return;
+
+  statusEl.textContent = `Loading track for ${year} R${round}…`;
+  statusEl.style.color = 'var(--muted)';
+
+  const send = () => {
+    if (liveConnection && liveConnection.readyState === WebSocket.OPEN) {
+      liveConnection.send(JSON.stringify({ cmd: 'load_track', year: parseInt(year), round: parseInt(round) }));
+      statusEl.textContent = `Fetching ${year} R${round} track via FastF1…`;
+    } else {
+      statusEl.textContent = 'Not connected — click Connect first';
+      statusEl.style.color = '#ff6b6b';
+    }
+  };
+
+  if (!liveConnection || liveConnection.readyState !== WebSocket.OPEN) {
+    liveConnect().then(send);
+  } else {
+    send();
+  }
 }
 
 function renderLivemapOrder() {
