@@ -645,7 +645,7 @@
 <!-- ══════════════════════════════════════════════════════════ LIVE MAP -->
 <div id="tab-livemap" class="tab">
   <div class="section-title">Live Position Map</div>
-  <div class="section-sub">Real-time car positions on track · Requires proxy.py · Only active during F1 sessions</div>
+  <div class="section-sub">Real-time car positions during F1 sessions · Load any circuit outline below to preview the map · Requires proxy.py</div>
 
   <div class="live-header">
     <div class="conn-dot" id="lm-dot"></div>
@@ -1176,11 +1176,7 @@ function deepMerge(base, update) {
 function applyLiveMessage(topic, data) {
   if (!data || typeof data !== 'object') return;
   if (topic === '__track__') { handleTrackData(data); return; }
-  if (topic === '__track_error__') {
-    const el = document.getElementById('lm-track-load-status');
-    if (el) { el.textContent = 'Error: ' + (data.msg || 'Unknown'); el.style.color = '#ff6b6b'; }
-    return;
-  }
+  if (topic === '__track_status__' || topic === '__track_error__') return; // handled by lmTrackWs
   if (topic === 'Position')  { handlePositionData(data); return; }
   if (topic === 'DriverList') {
     Object.entries(data).forEach(([num, info]) => {
@@ -1384,30 +1380,51 @@ function renderTrackToCanvas(canvasId, infoId, dotR, labelOffset) {
   });
 }
 
+let lmTrackWs = null;
+
 function lmLoadTrack() {
-  const year  = document.getElementById('lm-year').value;
-  const round = document.getElementById('lm-round').value;
+  const year  = parseInt(document.getElementById('lm-year').value);
+  const round = parseInt(document.getElementById('lm-round').value);
   const statusEl = document.getElementById('lm-track-load-status');
   if (!year || !round) return;
 
-  statusEl.textContent = `Loading track for ${year} R${round}…`;
+  if (lmTrackWs) { try { lmTrackWs.close(); } catch(e) {} }
+
+  statusEl.textContent = 'Connecting to proxy…';
   statusEl.style.color = 'var(--muted)';
 
-  const send = () => {
-    if (liveConnection && liveConnection.readyState === WebSocket.OPEN) {
-      liveConnection.send(JSON.stringify({ cmd: 'load_track', year: parseInt(year), round: parseInt(round) }));
-      statusEl.textContent = `Fetching ${year} R${round} track via FastF1…`;
-    } else {
-      statusEl.textContent = 'Not connected — click Connect first';
-      statusEl.style.color = '#ff6b6b';
-    }
+  lmTrackWs = new WebSocket('ws://localhost:8765');
+
+  lmTrackWs.onopen = () => {
+    lmTrackWs.send(JSON.stringify({ cmd: 'load_track', year, round }));
+    statusEl.textContent = `Loading ${year} R${round}… (may take a minute first time)`;
   };
 
-  if (!liveConnection || liveConnection.readyState !== WebSocket.OPEN) {
-    liveConnect().then(send);
-  } else {
-    send();
-  }
+  lmTrackWs.onmessage = (e) => {
+    try {
+      const { topic, data } = JSON.parse(e.data);
+      if (topic === '__track__') {
+        handleTrackData(data);
+        statusEl.textContent = `✓ ${data.circuit || 'Track'} loaded`;
+        statusEl.style.color = 'var(--green)';
+        lmTrackWs.close();
+      } else if (topic === '__track_status__') {
+        statusEl.textContent = data.msg || '';
+        statusEl.style.color = 'var(--muted)';
+      } else if (topic === '__track_error__') {
+        statusEl.textContent = 'Error: ' + (data.msg || 'Unknown error');
+        statusEl.style.color = '#ff6b6b';
+        lmTrackWs.close();
+      }
+    } catch(err) {}
+  };
+
+  lmTrackWs.onerror = () => {
+    statusEl.textContent = 'Cannot reach proxy.py — is it running?';
+    statusEl.style.color = '#ff6b6b';
+  };
+
+  lmTrackWs.onclose = () => { lmTrackWs = null; };
 }
 
 function renderLivemapOrder() {
@@ -1449,10 +1466,8 @@ function handleTrackData(data) {
     el.textContent = data.circuit ? `✓ ${data.circuit}` : '✓ Loaded';
     el.style.color = '#00e676';
   });
-  ['lm-circuit-label'].forEach(id => {
-    const el = document.getElementById(id);
-    if (el && data.circuit) el.textContent = data.circuit;
-  });
+  const circuitEl = document.getElementById('lm-circuit-label');
+  if (circuitEl && data.circuit) circuitEl.textContent = data.circuit;
   initTrackCanvas();
   initLivemapCanvas();
 }
