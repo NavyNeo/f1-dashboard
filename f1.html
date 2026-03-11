@@ -547,6 +547,63 @@
   </div>
 </div>
 
+<!-- ══════════════════════════════════════════════════════════ REPLAY -->
+<div id="tab-replay" class="tab">
+  <div class="section-title">Race Replay</div>
+  <div class="section-sub">Watch any session play back on the track map using FastF1 data · Requires proxy.py running</div>
+
+  <div class="controls">
+    <label>Season</label>
+    <select id="rep-year"></select>
+    <label>Round</label>
+    <input type="number" id="rep-round" value="1" min="1" max="24" style="width:70px">
+    <label>Session</label>
+    <select id="rep-session">
+      <option value="R">Race</option>
+      <option value="Q">Qualifying</option>
+      <option value="S">Sprint</option>
+      <option value="FP1">Practice 1</option>
+      <option value="FP2">Practice 2</option>
+      <option value="FP3">Practice 3</option>
+    </select>
+    <button class="btn" onclick="replayLoad()">Load Session</button>
+  </div>
+
+  <div class="replay-controls" id="rep-controls" style="display:none">
+    <button class="btn play" id="rep-play-btn" onclick="replayToggle()">▶ Play</button>
+    <label style="color:var(--muted);font-size:12px">Speed</label>
+    <select id="rep-speed" onchange="replaySetSpeed()">
+      <option value="1">1×</option>
+      <option value="5">5×</option>
+      <option value="10" selected>10×</option>
+      <option value="30">30×</option>
+      <option value="60">60×</option>
+    </select>
+    <div class="progress-wrap" id="rep-bar" onclick="replaySeek(event)">
+      <div id="rep-progress"></div>
+    </div>
+    <span id="rep-time">0:00 / 0:00</span>
+  </div>
+  <div class="rep-status" id="rep-status">Select a session above and click Load Session. proxy.py must be running.</div>
+
+  <div class="replay-layout">
+    <div class="track-panel">
+      <div class="card-title">
+        <span id="rep-circuit-label">Track Map</span>
+        <span id="rep-car-count" style="color:var(--muted)"></span>
+      </div>
+      <canvas id="rep-canvas" width="400" height="400"></canvas>
+      <div id="rep-track-info" style="padding:8px 14px;font-size:11px;color:var(--muted);border-top:1px solid var(--border)">—</div>
+    </div>
+    <div class="track-panel" style="position:sticky;top:70px">
+      <div class="card-title">Drivers</div>
+      <div class="driver-legend" id="rep-legend">
+        <div style="color:var(--muted);font-size:12px;padding:8px">Load a session to see drivers</div>
+      </div>
+    </div>
+  </div>
+</div>
+
 <script src="https://cdn.jsdelivr.net/npm/@microsoft/signalr@8.0.0/dist/browser/signalr.min.js"></script>
 <script>
 // ═══════════════════════════════════════════════════════════════
