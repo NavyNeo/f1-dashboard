@@ -638,7 +638,7 @@ let repRafId = null;
 
 document.addEventListener('DOMContentLoaded', () => {
   // Populate year selects
-  const selects = ['sched-year','stand-year','res-year','lap-year'];
+  const selects = ['sched-year','stand-year','res-year','lap-year','rep-year'];
   selects.forEach(id => {
     const sel = document.getElementById(id);
     for (let y = CURRENT_YEAR; y >= 2018; y--) {
