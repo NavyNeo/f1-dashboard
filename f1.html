@@ -535,6 +535,11 @@ let liveState = { drivers:{}, timing:{}, tyres:{}, sessionStatus:'', trackStatus
 let liveRefreshInterval = null;
 let countdownTarget = null;
 
+// Track map state
+let trackData = null;       // {x[], y[], xMin, xMax, yMin, yMax, rotation, circuit}
+let livePositions = {};     // num -> {X, Y, Z, Status}
+let trackRafId = null;
+
 // ═══════════════════════════════════════════════════════════════
 // INIT
 // ═══════════════════════════════════════════════════════════════
