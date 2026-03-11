@@ -337,6 +337,30 @@
   .pit-status.inpit { color: yellow; }
   .pit-status.pitout { color: cyan; }
   .pit-status.retired { color: var(--red); }
+
+  /* ── Replay ── */
+  .replay-layout { display: grid; grid-template-columns: 400px 1fr; gap: 16px; margin-top: 16px; align-items: start; }
+  @media(max-width:1000px){ .replay-layout{ grid-template-columns:1fr; } }
+  .replay-controls {
+    display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
+    background: var(--card); border: 1px solid var(--border); border-radius: 10px;
+    padding: 14px 16px; margin-bottom: 12px;
+  }
+  .progress-wrap {
+    flex: 1; min-width: 120px; cursor: pointer;
+    height: 6px; background: #2a2a2a; border-radius: 3px; position: relative;
+  }
+  #rep-progress { height: 100%; background: var(--red); border-radius: 3px; width: 0%; transition: width 0.15s linear; pointer-events: none; }
+  #rep-time { font-size: 12px; color: var(--muted); font-variant-numeric: tabular-nums; white-space: nowrap; }
+  .rep-status { font-size: 12px; color: var(--muted); padding: 6px 0; min-height: 20px; }
+  .rep-status.error { color: #ff6b6b; }
+  .driver-legend { display: flex; flex-direction: column; gap: 6px; padding: 14px; }
+  .driver-legend-item { display: flex; align-items: center; gap: 8px; font-size: 12px; }
+  .legend-dot { width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0; }
+  .btn.play  { background: #00aa44; }
+  .btn.play:hover  { background: #00cc55; }
+  .btn.pause { background: #333; color: #ccc; border: 1px solid var(--border); }
+  .btn.pause:hover { background: #444; }
 </style>
 </head>
 <body>
