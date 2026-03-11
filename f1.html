@@ -939,6 +939,8 @@ function deepMerge(base, update) {
 
 function applyLiveMessage(topic, data) {
   if (!data || typeof data !== 'object') return;
+  if (topic === '__track__') { handleTrackData(data); return; }
+  if (topic === 'Position')  { handlePositionData(data); return; }
   if (topic === 'DriverList') {
     Object.entries(data).forEach(([num, info]) => {
       if (typeof info === 'object') {
