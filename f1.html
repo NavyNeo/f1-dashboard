@@ -488,23 +488,37 @@
     <button class="btn secondary" onclick="liveRefreshPoll()">↻ Refresh</button>
   </div>
 
-  <div class="table-wrap">
-    <table>
-      <thead><tr>
-        <th>Pos</th><th>No</th><th>Driver</th><th>Team</th>
-        <th>Gap</th><th>Interval</th><th>Last Lap</th>
-        <th>S1</th><th>S2</th><th>S3</th>
-        <th>Tyre</th><th>Age</th><th>Status</th>
-      </tr></thead>
-      <tbody id="live-body">
-        <tr><td colspan="13" class="empty"><div class="icon">🔴</div>Click Connect to start live timing stream<br><small style="color:var(--muted);margin-top:8px;display:block">Only active during F1 sessions · Uses F1 live timing API</small></td></tr>
-      </tbody>
-    </table>
-  </div>
+  <div class="live-layout">
+    <!-- Track map -->
+    <div class="track-panel">
+      <div class="card-title">
+        <span>Track Map</span>
+        <span id="track-status-badge" style="color:var(--muted)">No data</span>
+      </div>
+      <canvas id="track-canvas" width="400" height="400"></canvas>
+      <div id="track-info">Waiting for position data…</div>
+    </div>
 
-  <div class="rc-panel" id="rc-panel">
-    <h4>Race Control Messages</h4>
-    <div id="rc-body"><div style="color:var(--muted);font-size:12px">No messages yet</div></div>
+    <!-- Timing table + RC messages -->
+    <div class="timing-panel">
+      <div class="table-wrap">
+        <table>
+          <thead><tr>
+            <th>Pos</th><th>No</th><th>Driver</th><th>Team</th>
+            <th>Gap</th><th>Interval</th><th>Last Lap</th>
+            <th>S1</th><th>S2</th><th>S3</th>
+            <th>Tyre</th><th>Age</th><th>Status</th>
+          </tr></thead>
+          <tbody id="live-body">
+            <tr><td colspan="13" class="empty"><div class="icon">🔴</div>Click Connect to start live timing stream<br><small style="color:var(--muted);margin-top:8px;display:block">Only active during F1 sessions · Uses F1 live timing API</small></td></tr>
+          </tbody>
+        </table>
+      </div>
+      <div class="rc-panel" id="rc-panel">
+        <h4>Race Control Messages</h4>
+        <div id="rc-body"><div style="color:var(--muted);font-size:12px">No messages yet</div></div>
+      </div>
+    </div>
   </div>
 </div>
 
