@@ -642,6 +642,37 @@
   </div>
 </div>
 
+<!-- ══════════════════════════════════════════════════════════ LIVE MAP -->
+<div id="tab-livemap" class="tab">
+  <div class="section-title">Live Position Map</div>
+  <div class="section-sub">Real-time car positions on track · Requires proxy.py · Only active during F1 sessions</div>
+
+  <div class="live-header">
+    <div class="conn-dot" id="lm-dot"></div>
+    <div id="lm-conn-label">Disconnected</div>
+    <div id="lm-session-name" style="flex:1">—</div>
+    <div id="lm-lap-info"></div>
+    <div id="lm-track-status"></div>
+    <button class="btn" onclick="liveConnect()">● Connect</button>
+    <button class="btn secondary" onclick="liveDisconnect()">■ Disconnect</button>
+  </div>
+
+  <div class="livemap-layout">
+    <div class="track-panel" style="position:sticky;top:66px">
+      <div class="card-title">
+        <span id="lm-circuit-label">Track Map</span>
+        <span id="lm-status-badge" style="color:var(--muted)">No data</span>
+      </div>
+      <canvas id="livemap-canvas" width="800" height="600"></canvas>
+      <div id="lm-info" style="padding:8px 14px;font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--t3);border-top:1px solid var(--border);min-height:24px">Waiting for position data…</div>
+    </div>
+    <div class="livemap-order">
+      <div class="card-title" style="padding:10px 14px;font-size:12px">Running Order</div>
+      <div id="lm-order"><div style="padding:16px;color:var(--muted);font-size:12px">No timing data</div></div>
+    </div>
+  </div>
+</div>
+
 <!-- ══════════════════════════════════════════════════════════ REPLAY -->
 <div id="tab-replay" class="tab">
   <div class="section-title">Race Replay</div>
