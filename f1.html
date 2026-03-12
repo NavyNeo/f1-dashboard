@@ -1517,6 +1517,33 @@ function repRenderLegend() {
   ).join('');
 }
 
+// ── Replay driver order (sorted by track position) ───────────────────────────
+function repUpdateDriverOrder() {
+  const el = document.getElementById('rep-legend');
+  if (!el || !repTrackData) return;
+  const { x, y } = repTrackData;
+  const entries = Object.entries(repPositions)
+    .filter(([, pos]) => pos && pos.X != null)
+    .map(([num, pos]) => {
+      let minDist = Infinity, minIdx = 0;
+      for (let i = 0; i < x.length; i++) {
+        const d = (pos.X - x[i]) ** 2 + (pos.Y - y[i]) ** 2;
+        if (d < minDist) { minDist = d; minIdx = i; }
+      }
+      return { num, minIdx, drv: repDrivers[num] || {} };
+    })
+    .sort((a, b) => a.minIdx - b.minIdx);
+  if (!entries.length) return;
+  el.innerHTML = entries.map((e, i) =>
+    `<div class="driver-legend-item">
+      <span style="color:var(--muted);width:16px;text-align:right;flex-shrink:0">${i + 1}</span>
+      <div class="legend-dot" style="background:#${e.drv.color || 'aaaaaa'}"></div>
+      <strong>${e.drv.code || e.num}</strong>
+      <span style="color:var(--muted)">${e.drv.team || ''}</span>
+    </div>`
+  ).join('');
+}
+
 // ── Replay canvas renderer ────────────────────────────────────────────────────
 function repRenderFrame() {
   repRafId = requestAnimationFrame(repRenderFrame);
