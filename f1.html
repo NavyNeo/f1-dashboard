@@ -1120,14 +1120,15 @@ async function loadAllLaps() {
 function setLiveDot(state) {
   const labels = { connected:'Connected', connecting:'Connecting…', error:'Connection Error', '':'Disconnected' };
   const label = labels[state] || 'Disconnected';
-  ['live-dot', 'lm-dot', 'lm-nav-dot'].forEach(id => {
+  const dotClass = 'conn-dot' + (state ? ' ' + state : '');
+  ['live-dot', 'map-live-dot'].forEach(id => {
     const el = document.getElementById(id);
-    if (el) el.className = (id === 'lm-nav-dot' ? 'nav-live-dot' : 'conn-dot') + (state === 'connected' ? ' connected' : state === 'connecting' ? ' connecting' : state === 'error' ? ' error' : '');
+    if (el) el.className = dotClass;
   });
-  ['live-conn-label', 'lm-conn-label'].forEach(id => {
-    const el = document.getElementById(id);
-    if (el) el.textContent = label;
-  });
+  const liveLabel = document.getElementById('live-conn-label');
+  if (liveLabel) liveLabel.textContent = label;
+  const mapLabel = document.getElementById('map-live-label');
+  if (mapLabel) mapLabel.textContent = 'Live: ' + label;
 }
 
 function deepMerge(base, update) {
