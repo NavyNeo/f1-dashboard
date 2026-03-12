@@ -768,7 +768,6 @@ let _repPanelLast = 0;
 document.addEventListener('DOMContentLoaded', () => {
   // Populate year selects
   const selects = ['sched-year','stand-year','res-year','lap-year','rep-year','rc2-year'];
-  // Set rc2-year to same default as others (already in DOM since tab-replay is always present)
   selects.forEach(id => {
     const sel = document.getElementById(id);
     for (let y = CURRENT_YEAR; y >= 2018; y--) {
