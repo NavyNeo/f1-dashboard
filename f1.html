@@ -705,6 +705,26 @@
   </div>
 </div>
 
+<!-- ══════════════════════════════════════════════════════════ RACE CHART -->
+<div id="tab-racechart" class="tab">
+  <div class="section-title">Race Position Chart</div>
+  <div class="section-sub">Animated lap-by-lap driver positions for any race</div>
+  <div class="controls rc2-controls">
+    <label>Season</label>
+    <select id="rc2-year"></select>
+    <label>Round</label>
+    <input id="rc2-round" type="number" min="1" max="24" value="1" style="width:52px">
+    <button class="btn" onclick="loadRaceChart()">Load</button>
+    <button class="btn play" id="rc2-playbtn" onclick="rc2PlayPause()">▶</button>
+    <button class="btn" onclick="rc2Reset()" style="font-size:13px">↺</button>
+    <label>Speed</label>
+    <input id="rc2-speed" type="range" min="1" max="12" value="7" oninput="rc2SetSpeed(this.value)">
+    <input id="rc2-scrubber" type="range" min="0" max="0" value="0" step="0.1" oninput="rc2Scrub(this.value)">
+  </div>
+  <div id="rc2-status"></div>
+  <canvas id="rc2-canvas" width="1200" height="640"></canvas>
+</div>
+
 <script src="https://cdn.jsdelivr.net/npm/@microsoft/signalr@8.0.0/dist/browser/signalr.min.js"></script>
 <script>
 // ═══════════════════════════════════════════════════════════════
@@ -741,7 +761,7 @@ let _repPanelLast = 0;
 
 document.addEventListener('DOMContentLoaded', () => {
   // Populate year selects
-  const selects = ['sched-year','stand-year','res-year','lap-year','rep-year'];
+  const selects = ['sched-year','stand-year','res-year','lap-year','rep-year','rc2-year'];
   selects.forEach(id => {
     const sel = document.getElementById(id);
     for (let y = CURRENT_YEAR; y >= 2018; y--) {
@@ -1871,6 +1891,250 @@ async function liveRefreshPoll() {
   // Schedule next poll
   if (liveRefreshInterval) clearInterval(liveRefreshInterval);
   liveRefreshInterval = setInterval(liveRefreshPoll, 30000);
+}
+
+// ══════════════════════════════════════════════════════════════════════════════
+// RACE POSITION CHART
+// ══════════════════════════════════════════════════════════════════════════════
+
+const RC2_COLORS = {
+  red_bull:'#3671C6', ferrari:'#E8002D', mercedes:'#00D2BE',
+  mclaren:'#FF8000', aston_martin:'#229971', alpine:'#FF87BC',
+  williams:'#64C4FF', rb:'#6692FF', alphatauri:'#6692FF',
+  kick_sauber:'#52E252', sauber:'#52E252', alfa:'#C92D4B',
+  alfa_romeo:'#C92D4B', haas:'#B6BABD', renault:'#FFF500',
+  racing_point:'#F596C8', toro_rosso:'#469BFF', force_india:'#F596C8',
+};
+
+let rc2Drivers  = {};   // driverId -> {code, color, positions[]}
+let rc2Laps     = 0;
+let rc2RaceName = '';
+let rc2AnimPos  = 0;    // float: 0 = grid, N = lap N complete
+let rc2Playing  = false;
+let rc2LastTs   = null;
+let rc2RafId    = null;
+let rc2Speed    = 150;  // ms per lap
+
+async function loadRaceChart() {
+  const year  = document.getElementById('rc2-year').value;
+  const round = document.getElementById('rc2-round').value;
+  const status = document.getElementById('rc2-status');
+  rc2Playing = false; rc2AnimPos = 0; rc2Drivers = {}; rc2Laps = 0; rc2RaceName = '';
+  status.textContent = 'Fetching race data…';
+
+  try {
+    const [resResp, lapsResp] = await Promise.all([
+      fetch(`${API}/${year}/${round}/results.json`),
+      fetch(`${API}/${year}/${round}/laps.json?limit=2000`)
+    ]);
+    const resJson  = await resResp.json();
+    const lapsJson = await lapsResp.json();
+
+    const race = resJson.MRData.RaceTable.Races[0];
+    if (!race) { status.textContent = 'No data found for this race.'; return; }
+    rc2RaceName = race.raceName;
+
+    // Build driver map from results (grid pos + code + colour)
+    const driverMap = {};
+    race.Results.forEach(r => {
+      const cid = r.Constructor.constructorId;
+      driverMap[r.Driver.driverId] = {
+        code:  r.Driver.code || r.Driver.driverId.slice(0,3).toUpperCase(),
+        color: RC2_COLORS[cid] || '#aaaaaa',
+        positions: [parseInt(r.grid) || 20],
+      };
+    });
+
+    // Lap-by-lap positions — fetch all pages if needed
+    let laps = lapsJson.MRData.RaceTable.Races[0]?.Laps || [];
+    const totalLapCount = parseInt(lapsJson.MRData.total || laps.length);
+    if (laps.length < totalLapCount) {
+      // Need more pages
+      const pages = [];
+      for (let off = laps.length; off < totalLapCount; off += 100) {
+        pages.push(fetch(`${API}/${year}/${round}/laps.json?limit=100&offset=${off}`).then(r => r.json()));
+      }
+      const extra = await Promise.all(pages);
+      extra.forEach(j => {
+        const more = j.MRData.RaceTable.Races[0]?.Laps || [];
+        laps = laps.concat(more);
+      });
+    }
+
+    rc2Laps = laps.length;
+    laps.forEach(lap => {
+      lap.Timings.forEach(t => {
+        if (driverMap[t.driverId])
+          driverMap[t.driverId].positions.push(parseInt(t.position));
+      });
+    });
+
+    rc2Drivers = driverMap;
+    console.log(`[RaceChart] ${rc2RaceName} — ${rc2Laps} laps, ${Object.keys(rc2Drivers).length} drivers`);
+    if (rc2Laps === 0) { status.textContent = `No lap data found for ${rc2RaceName}. Try a different season/round.`; return; }
+
+    document.getElementById('rc2-scrubber').max  = rc2Laps;
+    document.getElementById('rc2-scrubber').value = 0;
+    status.textContent = `${rc2RaceName}  ·  ${rc2Laps} laps  ·  ${Object.keys(rc2Drivers).length} drivers`;
+
+    rc2AnimPos = 0; rc2Playing = true; rc2LastTs = null;
+    document.getElementById('rc2-playbtn').textContent = '⏸';
+    rc2Draw(); // immediate first frame
+    if (!rc2RafId) rc2RafId = requestAnimationFrame(rc2Tick);
+  } catch(e) {
+    status.textContent = 'Error: ' + e.message;
+    console.error('[RaceChart]', e);
+  }
+}
+
+function rc2Tick(ts) {
+  rc2RafId = requestAnimationFrame(rc2Tick);
+  if (rc2Playing && rc2LastTs !== null) {
+    rc2AnimPos += (ts - rc2LastTs) / rc2Speed;
+    if (rc2AnimPos >= rc2Laps) {
+      rc2AnimPos = rc2Laps; rc2Playing = false;
+      document.getElementById('rc2-playbtn').textContent = '▶';
+    }
+    document.getElementById('rc2-scrubber').value = rc2AnimPos;
+  }
+  rc2LastTs = ts;
+  rc2Draw();
+}
+
+function rc2Draw() {
+  const canvas = document.getElementById('rc2-canvas');
+  if (!canvas) return;
+  const ctx = canvas.getContext('2d');
+  const W = canvas.width, H = canvas.height;
+  const pL = 42, pR = 52, pT = 48, pB = 36;
+  const plotW = W - pL - pR, plotH = H - pT - pB;
+  const maxPos = 20, total = rc2Laps;
+
+  ctx.fillStyle = '#f7f7f8';
+  ctx.fillRect(0, 0, W, H);
+
+  if (!total) {
+    ctx.fillStyle = '#aaa'; ctx.font = '14px system-ui'; ctx.textAlign = 'center';
+    ctx.fillText('Select a year & round, then press Load', W/2, H/2);
+    return;
+  }
+
+  const xOf = lap => pL + (lap / total) * plotW;
+  const yOf = pos => pT + ((pos - 1) / (maxPos - 1)) * plotH;
+
+  // Grid lines
+  for (let p = 1; p <= maxPos; p++) {
+    const y = yOf(p);
+    ctx.strokeStyle = p === 1 ? '#ccc' : '#e8e8e8';
+    ctx.lineWidth = p === 1 ? 1.5 : 1;
+    ctx.beginPath(); ctx.moveTo(pL, y); ctx.lineTo(pL + plotW, y); ctx.stroke();
+  }
+
+  // Y-axis labels
+  ctx.fillStyle = '#999'; ctx.font = '11px system-ui'; ctx.textAlign = 'right';
+  for (let p = 1; p <= maxPos; p++) ctx.fillText(p, pL - 7, yOf(p) + 4);
+
+  // X-axis lap labels
+  const step = total <= 30 ? 5 : total <= 60 ? 10 : 15;
+  ctx.fillStyle = '#999'; ctx.font = '11px system-ui'; ctx.textAlign = 'center';
+  for (let l = 0; l <= total; l += step) {
+    const x = xOf(l);
+    ctx.fillText(l === 0 ? 'Grid' : `L${l}`, x, pT + plotH + 18);
+    ctx.strokeStyle = '#ebebeb'; ctx.lineWidth = 1;
+    ctx.beginPath(); ctx.moveTo(x, pT); ctx.lineTo(x, pT + plotH); ctx.stroke();
+  }
+
+  // Title
+  ctx.fillStyle = '#111'; ctx.font = 'bold 15px "Barlow Condensed", system-ui'; ctx.textAlign = 'center';
+  ctx.fillText(`${rc2RaceName} — Position Chart`, W/2, 26);
+
+  // Axis labels
+  ctx.fillStyle = '#bbb'; ctx.font = '11px system-ui';
+  ctx.textAlign = 'center';
+  ctx.fillText('Lap', pL + plotW/2, H - 6);
+  ctx.save(); ctx.translate(12, pT + plotH/2); ctx.rotate(-Math.PI/2);
+  ctx.fillText('Position', 0, 0); ctx.restore();
+
+  // Current-lap marker
+  const cur = Math.min(rc2AnimPos, total);
+  const curX = xOf(cur);
+  ctx.strokeStyle = 'rgba(0,0,0,0.12)'; ctx.lineWidth = 1.5;
+  ctx.setLineDash([5,5]);
+  ctx.beginPath(); ctx.moveTo(curX, pT); ctx.lineTo(curX, pT + plotH); ctx.stroke();
+  ctx.setLineDash([]);
+
+  const lapFloor = Math.floor(cur);
+  const frac     = cur - lapFloor;
+  const drivers  = Object.values(rc2Drivers);
+
+  // Lines + dots
+  drivers.forEach(d => {
+    if (!d.positions || d.positions.length < 2) return;
+    ctx.strokeStyle = d.color; ctx.lineWidth = 2.2;
+    ctx.lineJoin = 'round'; ctx.beginPath();
+    ctx.moveTo(xOf(0), yOf(d.positions[0]));
+    const drawn = Math.min(lapFloor + 1, d.positions.length);
+    for (let i = 1; i < drawn; i++) ctx.lineTo(xOf(i), yOf(d.positions[i]));
+    if (frac > 0 && lapFloor + 1 < d.positions.length) {
+      const a = d.positions[lapFloor], b = d.positions[lapFloor + 1];
+      ctx.lineTo(xOf(lapFloor + frac), yOf(a + (b - a) * frac));
+    }
+    ctx.stroke();
+
+    ctx.fillStyle = d.color;
+    for (let i = 0; i < drawn && i < d.positions.length; i++) {
+      ctx.beginPath(); ctx.arc(xOf(i), yOf(d.positions[i]), 3.5, 0, Math.PI*2); ctx.fill();
+    }
+  });
+
+  // Driver labels (right side, deconflicted)
+  const labels = drivers
+    .filter(d => d.positions && d.positions.length >= 1)
+    .map(d => {
+      const idx = Math.min(lapFloor, d.positions.length - 1);
+      let pos = d.positions[idx];
+      if (frac > 0 && lapFloor + 1 < d.positions.length)
+        pos = pos + (d.positions[lapFloor + 1] - pos) * frac;
+      return { code: d.code, color: d.color, y: yOf(pos) };
+    })
+    .sort((a, b) => a.y - b.y);
+
+  // Nudge overlapping labels
+  const labelH = 13;
+  for (let i = 1; i < labels.length; i++) {
+    if (labels[i].y - labels[i-1].y < labelH)
+      labels[i].y = labels[i-1].y + labelH;
+  }
+  ctx.font = 'bold 11px monospace'; ctx.textAlign = 'left';
+  labels.forEach(lb => {
+    ctx.fillStyle = lb.color;
+    ctx.fillText(lb.code, pL + plotW + 6, lb.y + 4);
+  });
+}
+
+function rc2PlayPause() {
+  if (!rc2Laps) return;
+  if (rc2AnimPos >= rc2Laps) { rc2AnimPos = 0; document.getElementById('rc2-scrubber').value = 0; }
+  rc2Playing = !rc2Playing; rc2LastTs = null;
+  document.getElementById('rc2-playbtn').textContent = rc2Playing ? '⏸' : '▶';
+  if (!rc2RafId) rc2RafId = requestAnimationFrame(rc2Tick);
+}
+
+function rc2Reset() {
+  rc2Playing = false; rc2AnimPos = 0; rc2LastTs = null;
+  document.getElementById('rc2-playbtn').textContent = '▶';
+  const s = document.getElementById('rc2-scrubber'); if (s) s.value = 0;
+  rc2Draw();
+}
+
+function rc2Scrub(val) {
+  rc2Playing = false; rc2LastTs = null; rc2AnimPos = parseFloat(val);
+  document.getElementById('rc2-playbtn').textContent = '▶';
+}
+
+function rc2SetSpeed(val) {
+  // slider 1-12: val=12 → fast (80ms/lap), val=1 → slow (1200ms/lap)
+  rc2Speed = Math.round(1300 - val * 100);
 }
 </script>
 </body>
