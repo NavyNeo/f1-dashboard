@@ -421,8 +421,9 @@
   .pit-status.retired { color: var(--t3); }
 
   /* ── Replay ── */
-  .replay-layout { display: grid; grid-template-columns: 400px 1fr; gap: 16px; margin-top: 16px; align-items: start; }
+  .replay-layout { display: grid; grid-template-columns: 1fr 200px; gap: 16px; margin-top: 16px; align-items: start; }
   @media(max-width:1000px){ .replay-layout{ grid-template-columns:1fr; } }
+  #rep-canvas { display: block; width: 100%; aspect-ratio: 4/3; background: #09090f; }
   .replay-controls {
     display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
     background: var(--s1); border: 1px solid var(--border); border-radius: 3px;
@@ -1538,10 +1539,11 @@ function repRenderFrame() {
 
   const td = repTrackData;
   if (!td) {
-    ctx.fillStyle = '#0d0d0d';
-    ctx.fillRect(0, 0, W, H);
-    ctx.fillStyle = '#444'; ctx.font = '13px system-ui'; ctx.textAlign = 'center';
-    ctx.fillText('Waiting for track data…', W/2, H/2);
+    ctx.fillStyle = '#0e0e14'; ctx.fillRect(0, 0, W, H);
+    ctx.fillStyle = '#333'; ctx.font = '14px "Barlow Condensed",sans-serif'; ctx.textAlign = 'center';
+    ctx.fillText('No track data — load a session to begin', W/2, H/2 - 8);
+    ctx.fillStyle = '#252530'; ctx.font = '11px system-ui';
+    ctx.fillText('proxy.py must be running', W/2, H/2 + 14);
     return;
   }
 
@@ -1553,31 +1555,45 @@ function repRenderFrame() {
 
   // Track outline
   ctx.lineCap='round'; ctx.lineJoin='round';
-  ctx.strokeStyle='#111'; ctx.lineWidth=14;
-  ctx.beginPath();
-  const s = tc(x[0],y[0]); ctx.moveTo(s.cx,s.cy);
+  const s = tc(x[0],y[0]);
+  ctx.beginPath(); ctx.moveTo(s.cx,s.cy);
   for(let i=1;i<x.length;i++){const p=tc(x[i],y[i]);ctx.lineTo(p.cx,p.cy);}
-  ctx.closePath(); ctx.stroke();
+  ctx.closePath();
+  ctx.strokeStyle='#111'; ctx.lineWidth=14; ctx.stroke();
   ctx.strokeStyle='#2a2a2a'; ctx.lineWidth=10; ctx.stroke();
   ctx.strokeStyle='#555'; ctx.lineWidth=3; ctx.setLineDash([12,10]); ctx.stroke(); ctx.setLineDash([]);
 
-  // Start/finish
   const sf = tc(x[0],y[0]);
   ctx.fillStyle='#e10600'; ctx.fillRect(sf.cx-6,sf.cy-3,12,6);
 
-  // Cars
-  Object.entries(repPositions).forEach(([num, pos]) => {
+  // Cars — replay or live positions
+  const positions = mapMode === 'live' ? livePositions : repPositions;
+  const getDriver = num => mapMode === 'live'
+    ? { code: liveState.drivers[num]?.Tla || num, color: liveState.drivers[num]?.TeamColour || 'aaaaaa' }
+    : { code: repDrivers[num]?.code || num,       color: repDrivers[num]?.color || 'aaaaaa' };
+
+  Object.entries(positions).forEach(([num, pos]) => {
     if (!pos || !pos.X) return;
-    const d = repDrivers[num] || {};
-    const color = d.color ? '#'+d.color : '#aaa';
+    const d = getDriver(num);
+    const color = '#' + d.color.replace('#','');
     const {cx,cy} = tc(pos.X, pos.Y);
     ctx.shadowColor=color; ctx.shadowBlur=8;
     ctx.fillStyle = pos.Status === 'OffTrack' ? '#555' : color;
-    ctx.beginPath(); ctx.arc(cx,cy,6,0,Math.PI*2); ctx.fill();
+    ctx.beginPath(); ctx.arc(cx,cy,7,0,Math.PI*2); ctx.fill();
     ctx.shadowBlur=0;
-    ctx.fillStyle='#fff'; ctx.font='bold 8px monospace'; ctx.textAlign='center';
-    ctx.fillText(d.code||num, cx, cy-10);
+    ctx.fillStyle='#fff'; ctx.font='bold 9px monospace'; ctx.textAlign='center';
+    ctx.fillText(d.code, cx, cy-11);
   });
+
+  // Info bar
+  const infoEl = document.getElementById('rep-track-info');
+  if (infoEl) {
+    const n = Object.keys(positions).length;
+    infoEl.textContent = n ? `${n} cars · ${td.circuit||''} · ${mapMode === 'live' ? 'Live' : 'Replay'}` : td.circuit || '';
+  }
+
+  // Keep live order panel fresh
+  if (mapMode === 'live') renderLiveOrderInPanel();
 }
 
 function renderRC() {
