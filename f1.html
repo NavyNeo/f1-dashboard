@@ -439,6 +439,16 @@
   .btn.pause { background: var(--s2); color: var(--t2); border: 1px solid var(--border); }
   .btn.pause:hover { background: var(--s3); color: var(--text); }
 
+  /* ── Analysis layout ── */
+  .analysis-layout { display: grid; grid-template-columns: 1fr 330px; gap: 16px; margin-top: 10px; align-items: start; }
+  @media(max-width:1100px) { .analysis-layout { grid-template-columns: 1fr; } }
+  .analysis-right { display: flex; flex-direction: column; gap: 10px; }
+  .analysis-right .controls { flex-wrap: wrap; gap: 6px; padding: 8px 10px; }
+  .analysis-right .controls label { font-size: 11px; }
+  .analysis-right .controls select, .analysis-right .controls input[type=number] { font-size: 11px; padding: 3px 5px; }
+  .analysis-right .controls .btn { font-size: 11px; padding: 4px 8px; }
+  .track-map-canvas { display: block; width: 100%; aspect-ratio: 4/3; background: #09090f; border-radius: 6px 6px 0 0; }
+
   /* ── Race Chart ── */
   #rc2-canvas { display: block; width: 100%; border-radius: 8px; background: #f7f7f8; }
   .rc2-controls { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-bottom: 12px; }
@@ -467,8 +477,7 @@
   <button class="nav-btn" onclick="showTab('results')">Results</button>
   <button class="nav-btn" onclick="showTab('laps')">Lap Times</button>
   <button class="nav-btn" onclick="showTab('live')">Live<span class="nav-live-dot"></span></button>
-  <button class="nav-btn" onclick="showTab('replay')">Map</button>
-  <button class="nav-btn" onclick="showTab('racechart')">Race Chart</button>
+  <button class="nav-btn" onclick="showTab('replay')">Analysis</button>
 </nav>
 
 <!-- ════════════════════════════════════════════════════════════ SCHEDULE -->
@@ -639,90 +648,87 @@
   </div>
 </div>
 
-<!-- ══════════════════════════════════════════════════════════ REPLAY -->
+<!-- ══════════════════════════════════════════════════════════ ANALYSIS -->
 <div id="tab-replay" class="tab">
-  <div class="section-title">Track Map</div>
-  <div class="section-sub">Load any session to get the track outline and replay car positions · Switch to Live to overlay real-time positions · Requires proxy.py</div>
+  <div class="section-title">Race Analysis</div>
 
-  <div class="controls">
-    <label>Season</label>
-    <select id="rep-year"></select>
-    <label>Round</label>
-    <input type="number" id="rep-round" value="1" min="1" max="24" style="width:70px">
-    <label>Session</label>
-    <select id="rep-session">
-      <option value="R">Race</option>
-      <option value="Q">Qualifying</option>
-      <option value="S">Sprint</option>
-      <option value="FP1">Practice 1</option>
-      <option value="FP2">Practice 2</option>
-      <option value="FP3">Practice 3</option>
-    </select>
-    <button class="btn" onclick="replayLoad()">Load Session</button>
-    <div style="margin-left:auto;display:flex;align-items:center;gap:8px">
-      <div class="conn-dot" id="map-live-dot"></div>
-      <span id="map-live-label" style="font-size:12px;font-family:'Barlow Condensed',sans-serif;color:var(--t2)">Live: Disconnected</span>
-      <button class="btn secondary" onclick="liveConnect()">● Connect</button>
-      <button class="btn secondary" onclick="liveDisconnect()">■ Disconnect</button>
-      <button class="btn" id="map-mode-btn" onclick="toggleMapMode()" style="min-width:140px">Switch to Live View</button>
-    </div>
-  </div>
+  <div class="analysis-layout">
 
-  <div class="replay-controls" id="rep-controls" style="display:none">
-    <button class="btn play" id="rep-play-btn" onclick="replayToggle()">▶ Play</button>
-    <label style="color:var(--muted);font-size:12px">Speed</label>
-    <select id="rep-speed" onchange="replaySetSpeed()">
-      <option value="1">1×</option>
-      <option value="5">5×</option>
-      <option value="10" selected>10×</option>
-      <option value="30">30×</option>
-      <option value="60">60×</option>
-    </select>
-    <div class="progress-wrap" id="rep-bar" onclick="replaySeek(event)">
-      <div id="rep-progress"></div>
-    </div>
-    <span id="rep-time">0:00 / 0:00</span>
-  </div>
-  <div class="rep-status" id="rep-status">Select a session above and click Load Session. proxy.py must be running.</div>
-  <div class="load-bar-wrap" id="load-bar-wrap"><div class="load-bar-fill" id="load-bar-fill"></div></div>
-
-  <div class="replay-layout">
-    <div class="track-panel">
-      <div class="card-title">
-        <span id="rep-circuit-label">Track Map</span>
-        <span id="rep-car-count" style="color:var(--muted)"></span>
-        <span id="map-mode-badge" style="font-size:11px;color:var(--muted);margin-left:8px"></span>
+    <!-- LEFT: Race position chart -->
+    <div>
+      <div class="controls rc2-controls">
+        <label>Season</label>
+        <select id="rc2-year"></select>
+        <label>Round</label>
+        <input id="rc2-round" type="number" min="1" max="24" value="1" style="width:52px">
+        <button class="btn" onclick="loadRaceChart()">Load</button>
+        <button class="btn play" id="rc2-playbtn" onclick="rc2PlayPause()">▶</button>
+        <button class="btn" onclick="rc2Reset()" style="font-size:13px">↺</button>
+        <label>Speed</label>
+        <input id="rc2-speed" type="range" min="1" max="12" value="11" oninput="rc2SetSpeed(this.value)">
+        <input id="rc2-scrubber" type="range" min="0" max="0" value="0" step="0.1" oninput="rc2Scrub(this.value)">
       </div>
-      <canvas id="rep-canvas" width="800" height="600"></canvas>
-      <div id="rep-track-info" style="padding:8px 14px;font-size:11px;color:var(--muted);border-top:1px solid var(--border)">—</div>
+      <div id="rc2-status"></div>
+      <canvas id="rc2-canvas" width="1200" height="640"></canvas>
     </div>
-    <div class="track-panel" style="position:sticky;top:70px">
-      <div class="card-title" id="rep-panel-title">Drivers</div>
-      <div class="driver-legend" id="rep-legend">
-        <div style="color:var(--muted);font-size:12px;padding:8px">Load a session to see drivers</div>
+
+    <!-- RIGHT: Track map + driver panel -->
+    <div class="analysis-right">
+      <div class="controls">
+        <label>Season</label>
+        <select id="rep-year"></select>
+        <label>Round</label>
+        <input type="number" id="rep-round" value="1" min="1" max="24" style="width:46px">
+        <select id="rep-session">
+          <option value="R">Race</option>
+          <option value="Q">Quali</option>
+          <option value="S">Sprint</option>
+          <option value="FP1">FP1</option>
+          <option value="FP2">FP2</option>
+          <option value="FP3">FP3</option>
+        </select>
+        <button class="btn" onclick="replayLoad()">Load</button>
+        <button class="btn" id="map-mode-btn" onclick="toggleMapMode()">Live</button>
+      </div>
+      <div style="display:flex;align-items:center;gap:6px;padding:0 2px">
+        <div class="conn-dot" id="map-live-dot"></div>
+        <span id="map-live-label" style="font-size:11px;color:var(--t2);flex:1">Disconnected</span>
+        <button class="btn secondary" onclick="liveConnect()" style="font-size:11px;padding:3px 7px">Connect</button>
+        <button class="btn secondary" onclick="liveDisconnect()" style="font-size:11px;padding:3px 7px">Disconnect</button>
+      </div>
+      <div class="replay-controls" id="rep-controls" style="display:none">
+        <button class="btn play" id="rep-play-btn" onclick="replayToggle()">▶</button>
+        <select id="rep-speed" onchange="replaySetSpeed()" style="font-size:11px">
+          <option value="1">1×</option>
+          <option value="5">5×</option>
+          <option value="10" selected>10×</option>
+          <option value="30">30×</option>
+          <option value="60">60×</option>
+        </select>
+        <div class="progress-wrap" id="rep-bar" onclick="replaySeek(event)" style="flex:1">
+          <div id="rep-progress"></div>
+        </div>
+        <span id="rep-time" style="font-size:11px">0:00</span>
+      </div>
+      <div class="rep-status" id="rep-status" style="font-size:11px">proxy.py required</div>
+      <div class="load-bar-wrap" id="load-bar-wrap"><div class="load-bar-fill" id="load-bar-fill"></div></div>
+      <div class="track-panel" style="padding:0">
+        <div class="card-title" style="padding:6px 10px;font-size:11px">
+          <span id="rep-circuit-label">Track Map</span>
+          <span id="map-mode-badge" style="color:var(--red);margin-left:6px"></span>
+        </div>
+        <canvas id="rep-canvas" class="track-map-canvas" width="800" height="600"></canvas>
+        <div id="rep-track-info" style="padding:4px 10px;font-size:10px;color:var(--muted);border-top:1px solid var(--border)">—</div>
+      </div>
+      <div class="track-panel" style="position:sticky;top:70px">
+        <div class="card-title" id="rep-panel-title" style="font-size:12px;padding:6px 10px">Drivers</div>
+        <div class="driver-legend" id="rep-legend" style="font-size:12px">
+          <div style="color:var(--muted);font-size:11px;padding:8px">Load a session to see drivers</div>
+        </div>
       </div>
     </div>
-  </div>
-</div>
 
-<!-- ══════════════════════════════════════════════════════════ RACE CHART -->
-<div id="tab-racechart" class="tab">
-  <div class="section-title">Race Position Chart</div>
-  <div class="section-sub">Animated lap-by-lap driver positions for any race</div>
-  <div class="controls rc2-controls">
-    <label>Season</label>
-    <select id="rc2-year"></select>
-    <label>Round</label>
-    <input id="rc2-round" type="number" min="1" max="24" value="1" style="width:52px">
-    <button class="btn" onclick="loadRaceChart()">Load</button>
-    <button class="btn play" id="rc2-playbtn" onclick="rc2PlayPause()">▶</button>
-    <button class="btn" onclick="rc2Reset()" style="font-size:13px">↺</button>
-    <label>Speed</label>
-    <input id="rc2-speed" type="range" min="1" max="12" value="11" oninput="rc2SetSpeed(this.value)">
-    <input id="rc2-scrubber" type="range" min="0" max="0" value="0" step="0.1" oninput="rc2Scrub(this.value)">
   </div>
-  <div id="rc2-status"></div>
-  <canvas id="rc2-canvas" width="1200" height="640"></canvas>
 </div>
 
 <script src="https://cdn.jsdelivr.net/npm/@microsoft/signalr@8.0.0/dist/browser/signalr.min.js"></script>
@@ -762,6 +768,7 @@ let _repPanelLast = 0;
 document.addEventListener('DOMContentLoaded', () => {
   // Populate year selects
   const selects = ['sched-year','stand-year','res-year','lap-year','rep-year','rc2-year'];
+  // Set rc2-year to same default as others (already in DOM since tab-replay is always present)
   selects.forEach(id => {
     const sel = document.getElementById(id);
     for (let y = CURRENT_YEAR; y >= 2018; y--) {
@@ -1962,14 +1969,13 @@ async function loadRaceChart() {
 
     rc2Laps = laps.length;
 
-    // Mark DNF drivers from race results (reliable — timing data has gaps)
+    // Mark DNF drivers from race results — use positionText: finishers get "1","2"…, DNFs get "R","D" etc.
     race.Results.forEach(r => {
       const id = r.Driver.driverId;
-      const status = r.status || '';
-      const finished = status === 'Finished' || /^\+\d+ Lap/.test(status);
+      const finished = !isNaN(parseInt(r.positionText));
       if (!finished && driverMap[id]) {
         driverMap[id].isDnf = true;
-        driverMap[id].dnfLap = parseInt(r.laps) || 0; // last lap they completed
+        driverMap[id].dnfLap = parseInt(r.laps) || 0;
       }
     });
 
