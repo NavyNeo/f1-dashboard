@@ -1422,22 +1422,14 @@ function renderLivemapOrder() {
 
 function handleTrackData(data) {
   trackData = data;
-  ['track-status-badge', 'lm-status-badge'].forEach(id => {
-    const el = document.getElementById(id);
-    if (!el) return;
-    el.textContent = data.circuit ? `✓ ${data.circuit}` : '✓ Loaded';
-    el.style.color = '#00e676';
-  });
-  const circuitEl = document.getElementById('lm-circuit-label');
-  if (circuitEl && data.circuit) circuitEl.textContent = data.circuit;
+  const badge = document.getElementById('track-status-badge');
+  if (badge) { badge.textContent = data.circuit ? `✓ ${data.circuit}` : '✓ Loaded'; badge.style.color = '#00e676'; }
   initTrackCanvas();
-  initLivemapCanvas();
 }
 
 function handlePositionData(data) {
   Object.assign(livePositions, data);
   if (!trackRafId) initTrackCanvas();
-  if (!livemapRafId) initLivemapCanvas();
 }
 
 // ═══════════════════════════════════════════════════════════════
