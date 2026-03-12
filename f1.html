@@ -1225,20 +1225,9 @@ function initTrackCanvas() {
   trackRafId = requestAnimationFrame(renderTrackFrame);
 }
 
-function initLivemapCanvas() {
-  if (livemapRafId) return;
-  livemapRafId = requestAnimationFrame(renderLivemapFrame);
-}
-
 function renderTrackFrame() {
   trackRafId = requestAnimationFrame(renderTrackFrame);
   renderTrackToCanvas('track-canvas', 'track-info', 6, 8);
-}
-
-function renderLivemapFrame() {
-  livemapRafId = requestAnimationFrame(renderLivemapFrame);
-  renderTrackToCanvas('livemap-canvas', 'lm-info', 8, 10);
-  renderLivemapOrder();
 }
 
 function renderTrackToCanvas(canvasId, infoId, dotR, labelOffset) {
@@ -1342,67 +1331,26 @@ function renderTrackToCanvas(canvasId, infoId, dotR, labelOffset) {
   });
 }
 
-let lmTrackWs = null;
-
-function lmLoadTrack() {
-  const year  = parseInt(document.getElementById('lm-year').value);
-  const round = parseInt(document.getElementById('lm-round').value);
-  const statusEl = document.getElementById('lm-track-load-status');
-  if (!year || !round) return;
-
-  if (lmTrackWs) { try { lmTrackWs.close(); } catch(e) {} }
-
-  statusEl.textContent = 'Connecting to proxy…';
-  statusEl.style.color = 'var(--muted)';
-
-  lmTrackWs = new WebSocket('ws://localhost:8765');
-
-  lmTrackWs.onopen = () => {
-    lmTrackWs.send(JSON.stringify({ cmd: 'load_track', year, round }));
-    statusEl.textContent = `Loading ${year} R${round}… (may take a minute first time)`;
-  };
-
-  lmTrackWs.onmessage = (e) => {
-    try {
-      const { topic, data } = JSON.parse(e.data);
-      if (topic === '__track__') {
-        handleTrackData(data);
-        statusEl.textContent = `✓ ${data.circuit || 'Track'} loaded`;
-        statusEl.style.color = 'var(--green)';
-        lmTrackWs.close();
-      } else if (topic === '__track_status__') {
-        statusEl.textContent = data.msg || '';
-        statusEl.style.color = 'var(--muted)';
-      } else if (topic === '__track_error__') {
-        statusEl.textContent = 'Error: ' + (data.msg || 'Unknown error');
-        statusEl.style.color = '#ff6b6b';
-        lmTrackWs.close();
-      }
-    } catch(err) {}
-  };
-
-  lmTrackWs.onerror = () => {
-    statusEl.textContent = 'Cannot reach proxy.py — is it running?';
-    statusEl.style.color = '#ff6b6b';
-  };
-
-  lmTrackWs.onclose = () => { lmTrackWs = null; };
+function toggleMapMode() {
+  mapMode = mapMode === 'replay' ? 'live' : 'replay';
+  const btn = document.getElementById('map-mode-btn');
+  const badge = document.getElementById('map-mode-badge');
+  const title = document.getElementById('rep-panel-title');
+  if (btn) btn.textContent = mapMode === 'live' ? 'Switch to Replay View' : 'Switch to Live View';
+  if (badge) { badge.textContent = mapMode === 'live' ? '● LIVE' : ''; badge.style.color = 'var(--red)'; }
+  if (title) title.textContent = mapMode === 'live' ? 'Running Order' : 'Drivers';
+  if (mapMode === 'live') renderLiveOrderInPanel();
+  else repRenderLegend();
 }
 
-function renderLivemapOrder() {
-  const el = document.getElementById('lm-order');
+function renderLiveOrderInPanel() {
+  const el = document.getElementById('rep-legend');
   if (!el) return;
   const rows = Object.entries(liveState.timing)
-    .map(([num, t]) => ({
-      num, t,
-      pos: parseInt(t.Position || 99),
-      drv: liveState.drivers[num] || {},
-    }))
-    .filter(r => r.pos < 99)
-    .sort((a, b) => a.pos - b.pos)
-    .slice(0, 20);
+    .map(([num, t]) => ({ num, t, pos: parseInt(t.Position || 99), drv: liveState.drivers[num] || {} }))
+    .filter(r => r.pos < 99).sort((a, b) => a.pos - b.pos).slice(0, 20);
   if (!rows.length) {
-    el.innerHTML = '<div style="padding:20px 14px;color:var(--muted);font-size:12px;line-height:1.6">No timing data.<br>Connect during an active F1 session to see the running order.</div>';
+    el.innerHTML = '<div style="padding:16px;color:var(--muted);font-size:12px">No timing data — connect during a live F1 session</div>';
     return;
   }
   el.innerHTML = rows.map(r => {
@@ -1410,12 +1358,12 @@ function renderLivemapOrder() {
     const code = r.drv.Tla || r.num;
     const gap = r.t.GapToLeader || (r.pos === 1 ? 'Leader' : '');
     const flag = r.t.InPit ? 'PIT' : r.t.PitOut ? 'OUT' : r.t.Retired ? 'RTD' : '';
-    return `<div class="lm-row">
-      <span class="lm-pos">${r.pos}</span>
-      <span class="lm-dot" style="background:${colour}"></span>
-      <span class="lm-code">${code}</span>
-      <span class="lm-gap">${gap}</span>
-      ${flag ? `<span class="lm-flag">${flag}</span>` : ''}
+    return `<div class="driver-legend-item">
+      <span style="font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--muted);width:16px">${r.pos}</span>
+      <span class="legend-dot" style="background:${colour}"></span>
+      <span style="font-family:'Barlow Condensed',sans-serif;font-weight:700;font-size:14px;width:34px">${code}</span>
+      <span style="font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--t2);flex:1;text-align:right">${gap}</span>
+      ${flag ? `<span style="font-size:10px;color:var(--muted)">${flag}</span>` : ''}
     </div>`;
   }).join('');
 }
