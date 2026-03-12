@@ -438,6 +438,14 @@
   .btn.play:hover  { background: rgba(0,210,190,0.2); }
   .btn.pause { background: var(--s2); color: var(--t2); border: 1px solid var(--border); }
   .btn.pause:hover { background: var(--s3); color: var(--text); }
+
+  /* ── Race Chart ── */
+  #rc2-canvas { display: block; width: 100%; border-radius: 8px; background: #f7f7f8; }
+  .rc2-controls { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-bottom: 12px; }
+  .rc2-controls label { color: var(--muted); font-size: 12px; }
+  #rc2-speed { accent-color: var(--red); width: 90px; cursor: pointer; }
+  #rc2-scrubber { accent-color: var(--red); flex: 1; min-width: 120px; cursor: pointer; }
+  #rc2-status { font-size: 12px; color: var(--muted); margin-bottom: 10px; min-height: 16px; }
 </style>
 </head>
 <body>
@@ -460,6 +468,7 @@
   <button class="nav-btn" onclick="showTab('laps')">Lap Times</button>
   <button class="nav-btn" onclick="showTab('live')">Live<span class="nav-live-dot"></span></button>
   <button class="nav-btn" onclick="showTab('replay')">Map</button>
+  <button class="nav-btn" onclick="showTab('racechart')">Race Chart</button>
 </nav>
 
 <!-- ════════════════════════════════════════════════════════════ SCHEDULE -->
