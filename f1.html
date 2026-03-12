@@ -1144,7 +1144,7 @@ function deepMerge(base, update) {
 function applyLiveMessage(topic, data) {
   if (!data || typeof data !== 'object') return;
   if (topic === '__track__') { handleTrackData(data); return; }
-  if (topic === '__track_status__' || topic === '__track_error__') return; // handled by lmTrackWs
+  if (topic === '__track_status__' || topic === '__track_error__') return;
   if (topic === 'Position')  { handlePositionData(data); return; }
   if (topic === 'DriverList') {
     Object.entries(data).forEach(([num, info]) => {
@@ -1185,10 +1185,8 @@ function applyLiveMessage(topic, data) {
   } else if (topic === 'TrackStatus') {
     const map = {'1':'🟢 Track Clear','2':'🟡 Yellow Flag','3':'🟠 Safety Car','4':'🟠 Safety Car','5':'🔴 Red Flag','6':'🟡 VSC','7':'🟡 VSC Ending'};
     liveState.trackStatus = map[data.Status] || '';
-    ['live-track-status', 'lm-track-status'].forEach(id => {
-      const el = document.getElementById(id);
-      if (el) el.textContent = liveState.trackStatus;
-    });
+    const tsEl = document.getElementById('live-track-status');
+    if (tsEl) tsEl.textContent = liveState.trackStatus;
   } else if (topic === 'LapCount') {
     liveState.lap = parseInt(data.CurrentLap||0) || liveState.lap;
     liveState.totalLaps = parseInt(data.TotalLaps||0) || liveState.totalLaps;
@@ -1197,10 +1195,8 @@ function applyLiveMessage(topic, data) {
     const name = (data.Meeting?.Name||'') + (data.Name ? ' — ' + data.Name : '');
     if (name.trim()) {
       liveState.session = name;
-      ['live-session-name', 'lm-session-name'].forEach(id => {
-        const el = document.getElementById(id);
-        if (el) el.textContent = name;
-      });
+      const snEl = document.getElementById('live-session-name');
+      if (snEl) snEl.textContent = name;
     }
   } else if (topic === 'RaceControlMessages') {
     const msgs = data.Messages;
@@ -1216,10 +1212,8 @@ function applyLiveMessage(topic, data) {
 function updateLiveLapInfo() {
   const text = liveState.totalLaps ? `Lap ${liveState.lap} / ${liveState.totalLaps}`
              : liveState.lap ? `Lap ${liveState.lap}` : '';
-  ['live-lap-info', 'lm-lap-info'].forEach(id => {
-    const el = document.getElementById(id);
-    if (el) el.textContent = text;
-  });
+  const lapEl = document.getElementById('live-lap-info');
+  if (lapEl) lapEl.textContent = text;
 }
 
 // ═══════════════════════════════════════════════════════════════
