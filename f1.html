@@ -470,8 +470,7 @@
   <button class="nav-btn" onclick="showTab('results')">Results</button>
   <button class="nav-btn" onclick="showTab('laps')">Lap Times</button>
   <button class="nav-btn" onclick="showTab('live')">Live<span class="nav-live-dot"></span></button>
-  <button class="nav-btn" onclick="showTab('livemap')">Live Map<span class="nav-live-dot" id="lm-nav-dot"></span></button>
-  <button class="nav-btn" onclick="showTab('replay')">Replay</button>
+  <button class="nav-btn" onclick="showTab('replay')">Map</button>
 </nav>
 
 <!-- ════════════════════════════════════════════════════════════ SCHEDULE -->
@@ -642,50 +641,10 @@
   </div>
 </div>
 
-<!-- ══════════════════════════════════════════════════════════ LIVE MAP -->
-<div id="tab-livemap" class="tab">
-  <div class="section-title">Live Position Map</div>
-  <div class="section-sub">Real-time car positions during F1 sessions · Load any circuit outline below to preview the map · Requires proxy.py</div>
-
-  <div class="live-header">
-    <div class="conn-dot" id="lm-dot"></div>
-    <div id="lm-conn-label">Disconnected</div>
-    <div id="lm-session-name" style="flex:1">—</div>
-    <div id="lm-lap-info"></div>
-    <div id="lm-track-status"></div>
-    <button class="btn" onclick="liveConnect()">● Connect</button>
-    <button class="btn secondary" onclick="liveDisconnect()">■ Disconnect</button>
-  </div>
-
-  <div class="controls" style="margin-bottom:0">
-    <label>Load Track</label>
-    <select id="lm-year"></select>
-    <label>Round</label>
-    <input type="number" id="lm-round" value="1" min="1" max="24" style="width:70px">
-    <button class="btn" onclick="lmLoadTrack()">Load Track Outline</button>
-    <span id="lm-track-load-status" style="font-size:12px;color:var(--muted)"></span>
-  </div>
-
-  <div class="livemap-layout">
-    <div class="track-panel" style="position:sticky;top:66px">
-      <div class="card-title">
-        <span id="lm-circuit-label">Track Map</span>
-        <span id="lm-status-badge" style="color:var(--muted)">No data</span>
-      </div>
-      <canvas id="livemap-canvas" width="800" height="600"></canvas>
-      <div id="lm-info" style="padding:8px 14px;font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--t3);border-top:1px solid var(--border);min-height:24px">Waiting for position data…</div>
-    </div>
-    <div class="livemap-order">
-      <div class="card-title" style="padding:10px 14px;font-size:12px">Running Order</div>
-      <div id="lm-order"><div style="padding:20px 14px;color:var(--muted);font-size:12px;line-height:1.6">No timing data.<br>Connect during an active F1 session to see the running order.</div></div>
-    </div>
-  </div>
-</div>
-
 <!-- ══════════════════════════════════════════════════════════ REPLAY -->
 <div id="tab-replay" class="tab">
-  <div class="section-title">Race Replay</div>
-  <div class="section-sub">Watch any session play back on the track map using FastF1 data · Requires proxy.py running</div>
+  <div class="section-title">Track Map</div>
+  <div class="section-sub">Load any session to get the track outline and replay car positions · Switch to Live to overlay real-time positions · Requires proxy.py</div>
 
   <div class="controls">
     <label>Season</label>
@@ -702,6 +661,13 @@
       <option value="FP3">Practice 3</option>
     </select>
     <button class="btn" onclick="replayLoad()">Load Session</button>
+    <div style="margin-left:auto;display:flex;align-items:center;gap:8px">
+      <div class="conn-dot" id="map-live-dot"></div>
+      <span id="map-live-label" style="font-size:12px;font-family:'Barlow Condensed',sans-serif;color:var(--t2)">Live: Disconnected</span>
+      <button class="btn secondary" onclick="liveConnect()">● Connect</button>
+      <button class="btn secondary" onclick="liveDisconnect()">■ Disconnect</button>
+      <button class="btn" id="map-mode-btn" onclick="toggleMapMode()" style="min-width:140px">Switch to Live View</button>
+    </div>
   </div>
 
   <div class="replay-controls" id="rep-controls" style="display:none">
@@ -727,12 +693,13 @@
       <div class="card-title">
         <span id="rep-circuit-label">Track Map</span>
         <span id="rep-car-count" style="color:var(--muted)"></span>
+        <span id="map-mode-badge" style="font-size:11px;color:var(--muted);margin-left:8px"></span>
       </div>
-      <canvas id="rep-canvas" width="400" height="400"></canvas>
+      <canvas id="rep-canvas" width="800" height="600"></canvas>
       <div id="rep-track-info" style="padding:8px 14px;font-size:11px;color:var(--muted);border-top:1px solid var(--border)">—</div>
     </div>
     <div class="track-panel" style="position:sticky;top:70px">
-      <div class="card-title">Drivers</div>
+      <div class="card-title" id="rep-panel-title">Drivers</div>
       <div class="driver-legend" id="rep-legend">
         <div style="color:var(--muted);font-size:12px;padding:8px">Load a session to see drivers</div>
       </div>
