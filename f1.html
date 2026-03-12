@@ -652,16 +652,40 @@
 <div id="tab-replay" class="tab">
   <div class="section-title">Race Analysis</div>
 
+  <!-- Shared load controls -->
+  <div class="controls" style="margin-bottom:12px">
+    <label>Season</label>
+    <select id="rc2-year"></select>
+    <label>Round</label>
+    <input id="rc2-round" type="number" min="1" max="24" value="1" style="width:52px">
+    <label>Map session</label>
+    <select id="rep-session">
+      <option value="R">Race</option>
+      <option value="Q">Qualifying</option>
+      <option value="S">Sprint</option>
+      <option value="FP1">FP1</option>
+      <option value="FP2">FP2</option>
+      <option value="FP3">FP3</option>
+    </select>
+    <button class="btn" onclick="loadBoth()">Load</button>
+    <div style="margin-left:auto;display:flex;align-items:center;gap:8px">
+      <div class="conn-dot" id="map-live-dot"></div>
+      <span id="map-live-label" style="font-size:12px;color:var(--t2)">Disconnected</span>
+      <button class="btn secondary" onclick="liveConnect()">Connect</button>
+      <button class="btn secondary" onclick="liveDisconnect()">Disconnect</button>
+      <button class="btn" id="map-mode-btn" onclick="toggleMapMode()">Switch to Live</button>
+    </div>
+  </div>
+
+  <!-- Hidden inputs so existing replayLoad() still works -->
+  <select id="rep-year" style="display:none"></select>
+  <input type="hidden" id="rep-round" value="1">
+
   <div class="analysis-layout">
 
     <!-- LEFT: Race position chart -->
     <div>
-      <div class="controls rc2-controls">
-        <label>Season</label>
-        <select id="rc2-year"></select>
-        <label>Round</label>
-        <input id="rc2-round" type="number" min="1" max="24" value="1" style="width:52px">
-        <button class="btn" onclick="loadRaceChart()">Load</button>
+      <div class="controls rc2-controls" style="margin-bottom:6px">
         <button class="btn play" id="rc2-playbtn" onclick="rc2PlayPause()">▶</button>
         <button class="btn" onclick="rc2Reset()" style="font-size:13px">↺</button>
         <label>Speed</label>
@@ -674,28 +698,6 @@
 
     <!-- RIGHT: Track map + driver panel -->
     <div class="analysis-right">
-      <div class="controls">
-        <label>Season</label>
-        <select id="rep-year"></select>
-        <label>Round</label>
-        <input type="number" id="rep-round" value="1" min="1" max="24" style="width:46px">
-        <select id="rep-session">
-          <option value="R">Race</option>
-          <option value="Q">Quali</option>
-          <option value="S">Sprint</option>
-          <option value="FP1">FP1</option>
-          <option value="FP2">FP2</option>
-          <option value="FP3">FP3</option>
-        </select>
-        <button class="btn" onclick="replayLoad()">Load</button>
-        <button class="btn" id="map-mode-btn" onclick="toggleMapMode()">Live</button>
-      </div>
-      <div style="display:flex;align-items:center;gap:6px;padding:0 2px">
-        <div class="conn-dot" id="map-live-dot"></div>
-        <span id="map-live-label" style="font-size:11px;color:var(--t2);flex:1">Disconnected</span>
-        <button class="btn secondary" onclick="liveConnect()" style="font-size:11px;padding:3px 7px">Connect</button>
-        <button class="btn secondary" onclick="liveDisconnect()" style="font-size:11px;padding:3px 7px">Disconnect</button>
-      </div>
       <div class="replay-controls" id="rep-controls" style="display:none">
         <button class="btn play" id="rep-play-btn" onclick="replayToggle()">▶</button>
         <select id="rep-speed" onchange="replaySetSpeed()" style="font-size:11px">
@@ -710,7 +712,7 @@
         </div>
         <span id="rep-time" style="font-size:11px">0:00</span>
       </div>
-      <div class="rep-status" id="rep-status" style="font-size:11px">proxy.py required</div>
+      <div class="rep-status" id="rep-status" style="font-size:11px">proxy.py required · connect to load map</div>
       <div class="load-bar-wrap" id="load-bar-wrap"><div class="load-bar-fill" id="load-bar-fill"></div></div>
       <div class="track-panel" style="padding:0">
         <div class="card-title" style="padding:6px 10px;font-size:11px">
