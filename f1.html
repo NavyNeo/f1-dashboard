@@ -1565,12 +1565,14 @@ function repRenderFrame() {
     const d = getDriver(num);
     const color = '#' + d.color.replace('#','');
     const {cx,cy} = tc(pos.X, pos.Y);
+    const dotR = Math.max(5, Math.round(W / 90));
+    const fontSize = Math.max(8, Math.round(W / 55));
     ctx.shadowColor=color; ctx.shadowBlur=8;
     ctx.fillStyle = pos.Status === 'OffTrack' ? '#555' : color;
-    ctx.beginPath(); ctx.arc(cx,cy,7,0,Math.PI*2); ctx.fill();
+    ctx.beginPath(); ctx.arc(cx,cy,dotR,0,Math.PI*2); ctx.fill();
     ctx.shadowBlur=0;
-    ctx.fillStyle='#fff'; ctx.font='bold 9px monospace'; ctx.textAlign='center';
-    ctx.fillText(d.code, cx, cy-11);
+    ctx.fillStyle='#fff'; ctx.font=`bold ${fontSize}px monospace`; ctx.textAlign='center';
+    ctx.fillText(d.code, cx, cy - dotR - 4);
   });
 
   // Info bar
@@ -1580,8 +1582,13 @@ function repRenderFrame() {
     infoEl.textContent = n ? `${n} cars · ${td.circuit||''} · ${mapMode === 'live' ? 'Live' : 'Replay'}` : td.circuit || '';
   }
 
-  // Keep live order panel fresh
-  if (mapMode === 'live') renderLiveOrderInPanel();
+  // Keep order panel fresh (throttled to ~4Hz)
+  const _now = Date.now();
+  if (_now - _repPanelLast > 250) {
+    _repPanelLast = _now;
+    if (mapMode === 'live') renderLiveOrderInPanel();
+    else repUpdateDriverOrder();
+  }
 }
 
 function renderRC() {
