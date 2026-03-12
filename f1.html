@@ -1962,43 +1962,46 @@ async function loadRaceChart() {
 
     rc2Laps = laps.length;
 
-    // Compute positions from cumulative lap times (Jolpica's position field is unreliable)
+    // Mark DNF drivers from race results (reliable — timing data has gaps)
+    race.Results.forEach(r => {
+      const id = r.Driver.driverId;
+      const status = r.status || '';
+      const finished = status === 'Finished' || /^\+\d+ Lap/.test(status);
+      if (!finished && driverMap[id]) {
+        driverMap[id].isDnf = true;
+        driverMap[id].dnfLap = parseInt(r.laps) || 0; // last lap they completed
+      }
+    });
+
+    // Compute positions from cumulative lap times
     const cumTimes = {};
     Object.keys(driverMap).forEach(id => { cumTimes[id] = 0; });
-    const active = new Set(Object.keys(driverMap));
-    const dnfOrder = []; // ids in order they DNF'd (earliest first)
 
     laps.forEach((lap, lapIdx) => {
-      // Detect DNFs: drivers present last lap but missing this lap
-      const present = new Set(lap.Timings.map(t => t.driverId));
-      active.forEach(id => {
-        if (!present.has(id)) { active.delete(id); dnfOrder.push(id); }
-      });
+      const lapNum = lapIdx + 1;
 
       lap.Timings.forEach(t => {
+        const d = driverMap[t.driverId];
+        if (!d) return;
         const secs = rc2ParseTime(t.time);
-        if (secs !== null && active.has(t.driverId))
+        // Don't update cumulative time after driver has retired
+        if (secs !== null && !(d.isDnf && lapNum > d.dnfLap))
           cumTimes[t.driverId] = (cumTimes[t.driverId] || 0) + secs;
       });
 
-      // Active drivers ranked by cumulative time, DNF'd drivers below them (earliest DNF = last)
-      const activeRanked = [...active]
-        .filter(id => driverMap[id])
+      // Active drivers: not DNF'd yet this lap
+      const activeRanked = Object.keys(driverMap)
+        .filter(id => !driverMap[id].isDnf || lapNum <= driverMap[id].dnfLap)
         .sort((a, b) => cumTimes[a] - cumTimes[b]);
-      const dnfRanked = [...dnfOrder].filter(id => driverMap[id]).reverse(); // most recent DNF nearest top
+
+      // DNF'd drivers: sorted by laps completed desc (retired later = higher position)
+      const dnfRanked = Object.keys(driverMap)
+        .filter(id => driverMap[id].isDnf && lapNum > driverMap[id].dnfLap)
+        .sort((a, b) => driverMap[b].dnfLap - driverMap[a].dnfLap);
 
       [...activeRanked, ...dnfRanked].forEach((id, idx) => {
-        if (driverMap[id]) driverMap[id].positions.push(idx + 1);
+        driverMap[id].positions.push(idx + 1);
       });
-    });
-
-    // Mark DNF drivers with the lap they retired
-    dnfOrder.forEach((id, i) => {
-      if (driverMap[id]) {
-        driverMap[id].isDnf = true;
-        // dnfLap = index of the last lap they appeared in
-        driverMap[id].dnfLap = laps.findIndex(lap => !lap.Timings.some(t => t.driverId === id));
-      }
     });
 
     rc2Drivers = driverMap;
