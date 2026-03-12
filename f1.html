@@ -718,7 +718,7 @@
     <button class="btn play" id="rc2-playbtn" onclick="rc2PlayPause()">▶</button>
     <button class="btn" onclick="rc2Reset()" style="font-size:13px">↺</button>
     <label>Speed</label>
-    <input id="rc2-speed" type="range" min="1" max="12" value="7" oninput="rc2SetSpeed(this.value)">
+    <input id="rc2-speed" type="range" min="1" max="12" value="11" oninput="rc2SetSpeed(this.value)">
     <input id="rc2-scrubber" type="range" min="0" max="0" value="0" step="0.1" oninput="rc2Scrub(this.value)">
   </div>
   <div id="rc2-status"></div>
@@ -1897,6 +1897,12 @@ async function liveRefreshPoll() {
 // RACE POSITION CHART
 // ══════════════════════════════════════════════════════════════════════════════
 
+function rc2ParseTime(s) {
+  if (!s || s === 'None') return null;
+  const parts = s.split(':');
+  return parts.length === 2 ? parseInt(parts[0]) * 60 + parseFloat(parts[1]) : parseFloat(s);
+}
+
 const RC2_COLORS = {
   red_bull:'#3671C6', ferrari:'#E8002D', mercedes:'#00D2BE',
   mclaren:'#FF8000', aston_martin:'#229971', alpine:'#FF87BC',
@@ -1923,14 +1929,10 @@ async function loadRaceChart() {
   status.textContent = 'Fetching race data…';
 
   try {
-    const [resResp, lapsResp] = await Promise.all([
-      fetch(`${API}/${year}/${round}/results.json`),
-      fetch(`${API}/${year}/${round}/laps.json?limit=2000`)
-    ]);
-    const resJson  = await resResp.json();
-    const lapsJson = await lapsResp.json();
+    const resResp = await fetch(`${API}/${year}/${round}/results.json`);
+    const resJson = await resResp.json();
 
-    const race = resJson.MRData.RaceTable.Races[0];
+    const race = resJson.MRData?.RaceTable?.Races?.[0];
     if (!race) { status.textContent = 'No data found for this race.'; return; }
     rc2RaceName = race.raceName;
 
@@ -1945,32 +1947,61 @@ async function loadRaceChart() {
       };
     });
 
-    // Lap-by-lap positions — fetch all pages if needed
-    let laps = lapsJson.MRData.RaceTable.Races[0]?.Laps || [];
-    const totalLapCount = parseInt(lapsJson.MRData.total || laps.length);
-    if (laps.length < totalLapCount) {
-      // Need more pages
-      const pages = [];
-      for (let off = laps.length; off < totalLapCount; off += 100) {
-        pages.push(fetch(`${API}/${year}/${round}/laps.json?limit=100&offset=${off}`).then(r => r.json()));
-      }
-      const extra = await Promise.all(pages);
-      extra.forEach(j => {
-        const more = j.MRData.RaceTable.Races[0]?.Laps || [];
-        laps = laps.concat(more);
-      });
+    // Fetch lap data page by page (API max 100 per page)
+    status.textContent = `${rc2RaceName} — fetching laps…`;
+    let laps = [], offset = 0, pageTotal = Infinity;
+    while (laps.length < pageTotal) {
+      const r = await fetch(`${API}/${year}/${round}/laps.json?limit=100&offset=${offset}`);
+      const j = await r.json();
+      if (!j.MRData?.RaceTable?.Races?.[0]?.Laps) break;
+      pageTotal = parseInt(j.MRData.total);
+      laps = laps.concat(j.MRData.RaceTable.Races[0].Laps);
+      offset += 100;
+      if (offset >= pageTotal) break;
     }
 
     rc2Laps = laps.length;
-    laps.forEach(lap => {
+
+    // Compute positions from cumulative lap times (Jolpica's position field is unreliable)
+    const cumTimes = {};
+    Object.keys(driverMap).forEach(id => { cumTimes[id] = 0; });
+    const active = new Set(Object.keys(driverMap));
+    const dnfOrder = []; // ids in order they DNF'd (earliest first)
+
+    laps.forEach((lap, lapIdx) => {
+      // Detect DNFs: drivers present last lap but missing this lap
+      const present = new Set(lap.Timings.map(t => t.driverId));
+      active.forEach(id => {
+        if (!present.has(id)) { active.delete(id); dnfOrder.push(id); }
+      });
+
       lap.Timings.forEach(t => {
-        if (driverMap[t.driverId])
-          driverMap[t.driverId].positions.push(parseInt(t.position));
+        const secs = rc2ParseTime(t.time);
+        if (secs !== null && active.has(t.driverId))
+          cumTimes[t.driverId] = (cumTimes[t.driverId] || 0) + secs;
+      });
+
+      // Active drivers ranked by cumulative time, DNF'd drivers below them (earliest DNF = last)
+      const activeRanked = [...active]
+        .filter(id => driverMap[id])
+        .sort((a, b) => cumTimes[a] - cumTimes[b]);
+      const dnfRanked = [...dnfOrder].filter(id => driverMap[id]).reverse(); // most recent DNF nearest top
+
+      [...activeRanked, ...dnfRanked].forEach((id, idx) => {
+        if (driverMap[id]) driverMap[id].positions.push(idx + 1);
       });
     });
 
+    // Mark DNF drivers with the lap they retired
+    dnfOrder.forEach((id, i) => {
+      if (driverMap[id]) {
+        driverMap[id].isDnf = true;
+        // dnfLap = index of the last lap they appeared in
+        driverMap[id].dnfLap = laps.findIndex(lap => !lap.Timings.some(t => t.driverId === id));
+      }
+    });
+
     rc2Drivers = driverMap;
-    console.log(`[RaceChart] ${rc2RaceName} — ${rc2Laps} laps, ${Object.keys(rc2Drivers).length} drivers`);
     if (rc2Laps === 0) { status.textContent = `No lap data found for ${rc2RaceName}. Try a different season/round.`; return; }
 
     document.getElementById('rc2-scrubber').max  = rc2Laps;
@@ -2067,10 +2098,14 @@ function rc2Draw() {
   const frac     = cur - lapFloor;
   const drivers  = Object.values(rc2Drivers);
 
-  // Lines + dots
-  drivers.forEach(d => {
+  try {
+  // Lines + dots — DNF'd drivers drawn first (behind active drivers)
+  [...drivers].sort((a, b) => (a.isDnf ? 0 : 1) - (b.isDnf ? 0 : 1)).forEach(d => {
     if (!d.positions || d.positions.length < 2) return;
-    ctx.strokeStyle = d.color; ctx.lineWidth = 2.2;
+    const hasDnf = d.isDnf && lapFloor >= d.dnfLap;
+    const lineColor = hasDnf ? '#bbb' : d.color;
+    ctx.strokeStyle = lineColor; ctx.lineWidth = hasDnf ? 1.5 : 2.2;
+    ctx.globalAlpha = hasDnf ? 0.5 : 1;
     ctx.lineJoin = 'round'; ctx.beginPath();
     ctx.moveTo(xOf(0), yOf(d.positions[0]));
     const drawn = Math.min(lapFloor + 1, d.positions.length);
@@ -2080,11 +2115,11 @@ function rc2Draw() {
       ctx.lineTo(xOf(lapFloor + frac), yOf(a + (b - a) * frac));
     }
     ctx.stroke();
-
-    ctx.fillStyle = d.color;
+    ctx.fillStyle = lineColor;
     for (let i = 0; i < drawn && i < d.positions.length; i++) {
       ctx.beginPath(); ctx.arc(xOf(i), yOf(d.positions[i]), 3.5, 0, Math.PI*2); ctx.fill();
     }
+    ctx.globalAlpha = 1;
   });
 
   // Driver labels (right side, deconflicted)
@@ -2095,7 +2130,8 @@ function rc2Draw() {
       let pos = d.positions[idx];
       if (frac > 0 && lapFloor + 1 < d.positions.length)
         pos = pos + (d.positions[lapFloor + 1] - pos) * frac;
-      return { code: d.code, color: d.color, y: yOf(pos) };
+      const hasDnf = d.isDnf && lapFloor >= d.dnfLap;
+      return { code: hasDnf ? 'DNF' : d.code, color: hasDnf ? '#999' : d.color, y: yOf(pos), isDnf: hasDnf };
     })
     .sort((a, b) => a.y - b.y);
 
@@ -2105,11 +2141,15 @@ function rc2Draw() {
     if (labels[i].y - labels[i-1].y < labelH)
       labels[i].y = labels[i-1].y + labelH;
   }
-  ctx.font = 'bold 11px monospace'; ctx.textAlign = 'left';
+  ctx.textAlign = 'left';
   labels.forEach(lb => {
+    ctx.globalAlpha = lb.isDnf ? 0.5 : 1;
+    ctx.font = lb.isDnf ? '10px monospace' : 'bold 11px monospace';
     ctx.fillStyle = lb.color;
     ctx.fillText(lb.code, pL + plotW + 6, lb.y + 4);
   });
+  ctx.globalAlpha = 1;
+  } catch(e) { console.error('[RC2] draw error:', e); }
 }
 
 function rc2PlayPause() {
@@ -2133,8 +2173,8 @@ function rc2Scrub(val) {
 }
 
 function rc2SetSpeed(val) {
-  // slider 1-12: val=12 → fast (80ms/lap), val=1 → slow (1200ms/lap)
-  rc2Speed = Math.round(1300 - val * 100);
+  // val=1 → 1100ms/lap (slow), val=11 → 150ms/lap, val=12 → 50ms/lap (fast)
+  rc2Speed = val >= 12 ? 50 : Math.round(1200 - val * 100);
 }
 </script>
 </body>
