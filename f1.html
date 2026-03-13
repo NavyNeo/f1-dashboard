@@ -2037,9 +2037,8 @@ async function loadRaceChart() {
     document.getElementById('rc2-scrubber').value = 0;
     status.textContent = `${rc2RaceName}  ·  ${rc2Laps} laps  ·  ${Object.keys(rc2Drivers).length} drivers`;
 
-    rc2AnimPos = 0; rc2Playing = true; rc2LastTs = null;
-    document.getElementById('rc2-playbtn').textContent = '⏸';
-    rc2Draw(); // immediate first frame
+    rc2AnimPos = 0; rc2Playing = false; rc2LastTs = null;
+    rc2Draw(); // initial frame (paused)
     if (!rc2RafId) rc2RafId = requestAnimationFrame(rc2Tick);
   } catch(e) {
     status.textContent = 'Error: ' + e.message;
