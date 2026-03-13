@@ -439,10 +439,9 @@
   .btn.pause { background: var(--s2); color: var(--t2); border: 1px solid var(--border); }
   .btn.pause:hover { background: var(--s3); color: var(--text); }
 
-  /* ── Analysis layout ── */
-  .analysis-layout { display: flex; flex-direction: column; gap: 20px; margin-top: 10px; }
-  .analysis-map-row { display: grid; grid-template-columns: 1fr 280px; gap: 16px; align-items: start; }
-  @media(max-width:900px) { .analysis-map-row { grid-template-columns: 1fr; } }
+  /* ── Track Map layout ── */
+  .track-map-layout { display: grid; grid-template-columns: 1fr 280px; gap: 16px; margin-top: 10px; align-items: start; }
+  @media(max-width:900px) { .track-map-layout { grid-template-columns: 1fr; } }
   .track-map-canvas { display: block; width: 100%; aspect-ratio: 16/10; background: #09090f; border-radius: 6px 6px 0 0; }
 
   /* ── Race Chart ── */
@@ -473,7 +472,8 @@
   <button class="nav-btn" onclick="showTab('results')">Results</button>
   <button class="nav-btn" onclick="showTab('laps')">Lap Times</button>
   <button class="nav-btn" onclick="showTab('live')">Live<span class="nav-live-dot"></span></button>
-  <button class="nav-btn" onclick="showTab('replay')">Analysis</button>
+  <button class="nav-btn" onclick="showTab('racechart')">Race Chart</button>
+  <button class="nav-btn" onclick="showTab('replay')">Track Map</button>
 </nav>
 
 <!-- ════════════════════════════════════════════════════════════ SCHEDULE -->
@@ -644,17 +644,36 @@
   </div>
 </div>
 
-<!-- ══════════════════════════════════════════════════════════ ANALYSIS -->
-<div id="tab-replay" class="tab">
-  <div class="section-title">Race Analysis</div>
-
-  <!-- Shared load controls -->
+<!-- ══════════════════════════════════════════════════════════ RACE CHART -->
+<div id="tab-racechart" class="tab">
+  <div class="section-title">Race Position Chart</div>
   <div class="controls" style="margin-bottom:12px">
     <label>Season</label>
     <select id="rc2-year"></select>
     <label>Round</label>
     <input id="rc2-round" type="number" min="1" max="24" value="1" style="width:52px">
-    <label>Map session</label>
+    <button class="btn" onclick="loadRaceChart()">Load</button>
+  </div>
+  <div class="controls rc2-controls" style="margin-bottom:6px">
+    <button class="btn play" id="rc2-playbtn" onclick="rc2PlayPause()">▶</button>
+    <button class="btn" onclick="rc2Reset()" style="font-size:13px">↺</button>
+    <label>Speed</label>
+    <input id="rc2-speed" type="range" min="1" max="12" value="11" oninput="rc2SetSpeed(this.value)">
+    <input id="rc2-scrubber" type="range" min="0" max="0" value="0" step="0.1" oninput="rc2Scrub(this.value)">
+  </div>
+  <div id="rc2-status"></div>
+  <canvas id="rc2-canvas" width="1600" height="640"></canvas>
+</div>
+
+<!-- ══════════════════════════════════════════════════════════ TRACK MAP -->
+<div id="tab-replay" class="tab">
+  <div class="section-title">Track Map</div>
+  <div class="controls" style="margin-bottom:12px">
+    <label>Season</label>
+    <select id="rep-year"></select>
+    <label>Round</label>
+    <input id="rep-round" type="number" min="1" max="24" value="1" style="width:52px">
+    <label>Session</label>
     <select id="rep-session">
       <option value="R">Race</option>
       <option value="Q">Qualifying</option>
@@ -663,7 +682,7 @@
       <option value="FP2">FP2</option>
       <option value="FP3">FP3</option>
     </select>
-    <button class="btn" onclick="loadBoth()">Load</button>
+    <button class="btn" onclick="replayLoad()">Load</button>
     <div style="margin-left:auto;display:flex;align-items:center;gap:8px">
       <div class="conn-dot" id="map-live-dot"></div>
       <span id="map-live-label" style="font-size:12px;color:var(--t2)">Disconnected</span>
@@ -672,62 +691,37 @@
       <button class="btn" id="map-mode-btn" onclick="toggleMapMode()">Switch to Live</button>
     </div>
   </div>
-
-  <!-- Hidden inputs so existing replayLoad() still works -->
-  <select id="rep-year" style="display:none"></select>
-  <input type="hidden" id="rep-round" value="1">
-
-  <div class="analysis-layout">
-
-    <!-- TOP: Race position chart (full width) -->
-    <div>
-      <div class="controls rc2-controls" style="margin-bottom:6px">
-        <button class="btn play" id="rc2-playbtn" onclick="rc2PlayPause()">▶</button>
-        <button class="btn" onclick="rc2Reset()" style="font-size:13px">↺</button>
-        <label>Speed</label>
-        <input id="rc2-speed" type="range" min="1" max="12" value="11" oninput="rc2SetSpeed(this.value)">
-        <input id="rc2-scrubber" type="range" min="0" max="0" value="0" step="0.1" oninput="rc2Scrub(this.value)">
-      </div>
-      <div id="rc2-status"></div>
-      <canvas id="rc2-canvas" width="1600" height="500"></canvas>
+  <div class="replay-controls" id="rep-controls" style="display:none">
+    <button class="btn play" id="rep-play-btn" onclick="replayToggle()">▶</button>
+    <select id="rep-speed" onchange="replaySetSpeed()" style="font-size:11px">
+      <option value="1">1×</option>
+      <option value="5">5×</option>
+      <option value="10" selected>10×</option>
+      <option value="30">30×</option>
+      <option value="60">60×</option>
+    </select>
+    <div class="progress-wrap" id="rep-bar" onclick="replaySeek(event)" style="flex:1">
+      <div id="rep-progress"></div>
     </div>
-
-    <!-- BOTTOM: Track map (large) + driver panel (side) -->
-    <div class="analysis-map-row">
-      <div>
-        <div class="replay-controls" id="rep-controls" style="display:none">
-          <button class="btn play" id="rep-play-btn" onclick="replayToggle()">▶</button>
-          <select id="rep-speed" onchange="replaySetSpeed()" style="font-size:11px">
-            <option value="1">1×</option>
-            <option value="5">5×</option>
-            <option value="10" selected>10×</option>
-            <option value="30">30×</option>
-            <option value="60">60×</option>
-          </select>
-          <div class="progress-wrap" id="rep-bar" onclick="replaySeek(event)" style="flex:1">
-            <div id="rep-progress"></div>
-          </div>
-          <span id="rep-time" style="font-size:11px">0:00</span>
-        </div>
-        <div class="rep-status" id="rep-status" style="font-size:11px">proxy.py required · connect to load map</div>
-        <div class="load-bar-wrap" id="load-bar-wrap"><div class="load-bar-fill" id="load-bar-fill"></div></div>
-        <div class="track-panel" style="padding:0">
-          <div class="card-title" style="padding:6px 10px;font-size:11px">
-            <span id="rep-circuit-label">Track Map</span>
-            <span id="map-mode-badge" style="color:var(--red);margin-left:6px"></span>
-          </div>
-          <canvas id="rep-canvas" class="track-map-canvas" width="1000" height="625"></canvas>
-          <div id="rep-track-info" style="padding:4px 10px;font-size:10px;color:var(--muted);border-top:1px solid var(--border)">—</div>
-        </div>
+    <span id="rep-time" style="font-size:11px">0:00</span>
+  </div>
+  <div class="rep-status" id="rep-status" style="font-size:11px">Select a session and press Load</div>
+  <div class="load-bar-wrap" id="load-bar-wrap"><div class="load-bar-fill" id="load-bar-fill"></div></div>
+  <div class="track-map-layout">
+    <div class="track-panel" style="padding:0">
+      <div class="card-title" style="padding:6px 10px;font-size:11px">
+        <span id="rep-circuit-label">Track Map</span>
+        <span id="map-mode-badge" style="color:var(--red);margin-left:6px"></span>
       </div>
-      <div class="track-panel" style="position:sticky;top:70px">
-        <div class="card-title" id="rep-panel-title" style="font-size:12px;padding:6px 10px">Drivers</div>
-        <div class="driver-legend" id="rep-legend" style="font-size:12px">
-          <div style="color:var(--muted);font-size:11px;padding:8px">Load a session to see drivers</div>
-        </div>
+      <canvas id="rep-canvas" class="track-map-canvas" width="1000" height="625"></canvas>
+      <div id="rep-track-info" style="padding:4px 10px;font-size:10px;color:var(--muted);border-top:1px solid var(--border)">—</div>
+    </div>
+    <div class="track-panel" style="position:sticky;top:70px">
+      <div class="card-title" id="rep-panel-title" style="font-size:12px;padding:6px 10px">Drivers</div>
+      <div class="driver-legend" id="rep-legend" style="font-size:12px">
+        <div style="color:var(--muted);font-size:11px;padding:8px">Load a session to see drivers</div>
       </div>
     </div>
-
   </div>
 </div>
 
@@ -768,7 +762,7 @@ let _repPanelLast = 0;
 
 document.addEventListener('DOMContentLoaded', () => {
   // Populate year selects
-  const selects = ['sched-year','stand-year','res-year','lap-year','rep-year','rc2-year'];
+  const selects = ['sched-year','stand-year','res-year','lap-year','rc2-year','rep-year'];
   // Sync rep-round hidden input when rc2-round changes
   document.getElementById('rc2-round').addEventListener('change', e => {
     document.getElementById('rep-round').value = e.target.value;
