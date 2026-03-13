@@ -440,13 +440,9 @@
   .btn.pause:hover { background: var(--s3); color: var(--text); }
 
   /* ── Analysis layout ── */
-  .analysis-layout { display: grid; grid-template-columns: 1fr 330px; gap: 16px; margin-top: 10px; align-items: start; }
+  .analysis-layout { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-top: 10px; align-items: start; }
   @media(max-width:1100px) { .analysis-layout { grid-template-columns: 1fr; } }
   .analysis-right { display: flex; flex-direction: column; gap: 10px; }
-  .analysis-right .controls { flex-wrap: wrap; gap: 6px; padding: 8px 10px; }
-  .analysis-right .controls label { font-size: 11px; }
-  .analysis-right .controls select, .analysis-right .controls input[type=number] { font-size: 11px; padding: 3px 5px; }
-  .analysis-right .controls .btn { font-size: 11px; padding: 4px 8px; }
   .track-map-canvas { display: block; width: 100%; aspect-ratio: 4/3; background: #09090f; border-radius: 6px 6px 0 0; }
 
   /* ── Race Chart ── */
@@ -668,8 +664,6 @@
       <option value="FP3">FP3</option>
     </select>
     <button class="btn" onclick="loadBoth()">Load</button>
-    <button class="btn play" id="sync-play-btn" onclick="syncPlay()">▶ Play</button>
-    <button class="btn" onclick="syncReset()" title="Reset both to start">↺</button>
     <div style="margin-left:auto;display:flex;align-items:center;gap:8px">
       <div class="conn-dot" id="map-live-dot"></div>
       <span id="map-live-label" style="font-size:12px;color:var(--t2)">Disconnected</span>
@@ -688,6 +682,8 @@
     <!-- LEFT: Race position chart -->
     <div>
       <div class="controls rc2-controls" style="margin-bottom:6px">
+        <button class="btn play" id="rc2-playbtn" onclick="rc2PlayPause()">▶</button>
+        <button class="btn" onclick="rc2Reset()" style="font-size:13px">↺</button>
         <label>Speed</label>
         <input id="rc2-speed" type="range" min="1" max="12" value="11" oninput="rc2SetSpeed(this.value)">
         <input id="rc2-scrubber" type="range" min="0" max="0" value="0" step="0.1" oninput="rc2Scrub(this.value)">
@@ -699,6 +695,7 @@
     <!-- RIGHT: Track map + driver panel -->
     <div class="analysis-right">
       <div class="replay-controls" id="rep-controls" style="display:none">
+        <button class="btn play" id="rep-play-btn" onclick="replayToggle()">▶</button>
         <select id="rep-speed" onchange="replaySetSpeed()" style="font-size:11px">
           <option value="1">1×</option>
           <option value="5">5×</option>
