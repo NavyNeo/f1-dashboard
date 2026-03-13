@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>F1 Timing</title>
+<title>F1 Timing v2</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:ital,wght@0,400;0,600;0,700;0,800;0,900;1,700&family=Barlow:wght@400;500;600&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
@@ -662,7 +662,7 @@
     <input id="rc2-scrubber" type="range" min="0" max="0" value="0" step="0.1" oninput="rc2Scrub(this.value)">
   </div>
   <div id="rc2-status"></div>
-  <canvas id="rc2-canvas" width="1600" height="640"></canvas>
+  <canvas id="rc2-canvas" width="1600" height="800"></canvas>
 </div>
 
 <!-- ══════════════════════════════════════════════════════════ TRACK MAP -->
@@ -2009,11 +2009,14 @@ async function loadRaceChart() {
     });
 
     rc2Drivers = driverMap;
+    // Debug: log max position to verify all drivers are ranked
+    const allPos = Object.values(driverMap).flatMap(d => d.positions);
+    console.log('[RC2] drivers:', Object.keys(driverMap).length, 'maxPosition:', Math.max(...allPos), 'minPosition:', Math.min(...allPos));
     if (rc2Laps === 0) { status.textContent = `No lap data found for ${rc2RaceName}. Try a different season/round.`; return; }
 
     document.getElementById('rc2-scrubber').max  = rc2Laps;
     document.getElementById('rc2-scrubber').value = 0;
-    status.textContent = `${rc2RaceName}  ·  ${rc2Laps} laps  ·  ${Object.keys(rc2Drivers).length} drivers`;
+    status.textContent = `${rc2RaceName}  ·  ${rc2Laps} laps  ·  ${Object.keys(rc2Drivers).length} drivers  ·  Y-axis: 1–${Object.keys(rc2Drivers).length}`;
 
     rc2AnimPos = 0; rc2Playing = false; rc2LastTs = null;
     rc2Draw(); // initial frame (paused)
@@ -2045,7 +2048,8 @@ function rc2Draw() {
   const W = canvas.width, H = canvas.height;
   const pL = 42, pR = 52, pT = 48, pB = 36;
   const plotW = W - pL - pR, plotH = H - pT - pB;
-  const maxPos = 20, total = rc2Laps;
+  const maxPos = 22; // F1 grid has up to 22 drivers
+  const total = rc2Laps;
 
   ctx.fillStyle = '#f7f7f8';
   ctx.fillRect(0, 0, W, H);
