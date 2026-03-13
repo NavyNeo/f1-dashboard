@@ -1506,15 +1506,7 @@ function repSetProgress(state, pct) {
   }
 }
 
-function replayToggle() {
-  if (repDuration === 0) return;
-  repPlaying = !repPlaying;
-  const btn = document.getElementById('rep-play-btn');
-  btn.textContent = repPlaying ? '⏸ Pause' : '▶ Play';
-  btn.className = repPlaying ? 'btn pause' : 'btn play';
-  replaySend({ cmd: repPlaying ? 'replay_play' : 'replay_pause',
-               speed: parseFloat(document.getElementById('rep-speed').value) });
-}
+function replayToggle() { syncPlay(); } // delegates to shared sync button
 
 function replaySetSpeed() {
   const speed = parseFloat(document.getElementById('rep-speed').value);
