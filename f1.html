@@ -1455,6 +1455,7 @@ function repOnMessage(e) {
       }
     } else if (topic === '__replay_ready__') {
       repDuration = data.duration;
+      repRaceStartOffset = data.raceStartOffset || 0;
       repDrivers = data.drivers || {};
       document.getElementById('rep-circuit-label').textContent = data.circuit || 'Track Map';
       document.getElementById('rep-controls').style.display = 'flex';
