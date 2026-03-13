@@ -2009,9 +2009,6 @@ async function loadRaceChart() {
     });
 
     rc2Drivers = driverMap;
-    // Debug: log max position to verify all drivers are ranked
-    const allPos = Object.values(driverMap).flatMap(d => d.positions);
-    console.log('[RC2] drivers:', Object.keys(driverMap).length, 'maxPosition:', Math.max(...allPos), 'minPosition:', Math.min(...allPos));
     if (rc2Laps === 0) { status.textContent = `No lap data found for ${rc2RaceName}. Try a different season/round.`; return; }
 
     document.getElementById('rc2-scrubber').max  = rc2Laps;
