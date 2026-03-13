@@ -763,10 +763,6 @@ let _repPanelLast = 0;
 document.addEventListener('DOMContentLoaded', () => {
   // Populate year selects
   const selects = ['sched-year','stand-year','res-year','lap-year','rc2-year','rep-year'];
-  // Sync rep-round hidden input when rc2-round changes
-  document.getElementById('rc2-round').addEventListener('change', e => {
-    document.getElementById('rep-round').value = e.target.value;
-  });
   selects.forEach(id => {
     const sel = document.getElementById(id);
     for (let y = CURRENT_YEAR; y >= 2018; y--) {
@@ -1929,15 +1925,6 @@ let rc2Playing  = false;
 let rc2LastTs   = null;
 let rc2RafId    = null;
 let rc2Speed    = 150;  // ms per lap
-
-function loadBoth() {
-  const year  = document.getElementById('rc2-year').value;
-  const round = document.getElementById('rc2-round').value;
-  document.getElementById('rep-year').value  = year;
-  document.getElementById('rep-round').value = round;
-  loadRaceChart();
-  replayLoad();
-}
 
 async function loadRaceChart() {
   const year  = document.getElementById('rc2-year').value;
