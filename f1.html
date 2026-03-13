@@ -668,6 +668,8 @@
       <option value="FP3">FP3</option>
     </select>
     <button class="btn" onclick="loadBoth()">Load</button>
+    <button class="btn play" id="sync-play-btn" onclick="syncPlay()">▶ Play</button>
+    <button class="btn" onclick="syncReset()" title="Reset both to start">↺</button>
     <div style="margin-left:auto;display:flex;align-items:center;gap:8px">
       <div class="conn-dot" id="map-live-dot"></div>
       <span id="map-live-label" style="font-size:12px;color:var(--t2)">Disconnected</span>
@@ -686,9 +688,7 @@
     <!-- LEFT: Race position chart -->
     <div>
       <div class="controls rc2-controls" style="margin-bottom:6px">
-        <button class="btn play" id="rc2-playbtn" onclick="rc2PlayPause()">▶</button>
-        <button class="btn" onclick="rc2Reset()" style="font-size:13px">↺</button>
-        <label>Speed</label>
+        <label>Chart speed</label>
         <input id="rc2-speed" type="range" min="1" max="12" value="11" oninput="rc2SetSpeed(this.value)">
         <input id="rc2-scrubber" type="range" min="0" max="0" value="0" step="0.1" oninput="rc2Scrub(this.value)">
       </div>
@@ -699,7 +699,6 @@
     <!-- RIGHT: Track map + driver panel -->
     <div class="analysis-right">
       <div class="replay-controls" id="rep-controls" style="display:none">
-        <button class="btn play" id="rep-play-btn" onclick="replayToggle()">▶</button>
         <select id="rep-speed" onchange="replaySetSpeed()" style="font-size:11px">
           <option value="1">1×</option>
           <option value="5">5×</option>
@@ -1933,19 +1932,54 @@ let rc2LastTs   = null;
 let rc2RafId    = null;
 let rc2Speed    = 150;  // ms per lap
 
-function loadBoth() {
-  try {
-    const year  = document.getElementById('rc2-year').value;
-    const round = document.getElementById('rc2-round').value;
-    console.log('[loadBoth] year=', year, 'round=', round);
-    document.getElementById('rep-year').value  = year;
-    document.getElementById('rep-round').value = round;
-    loadRaceChart();
-    replayLoad();
-  } catch(e) {
-    console.error('[loadBoth] ERROR:', e);
-    alert('Load error: ' + e.message + '\n\nCheck console (F12) for details.');
+function syncPlay() {
+  if (!rc2Laps && repDuration === 0) return; // nothing loaded yet
+  const playing = !rc2Playing;
+  // Race chart
+  if (rc2Laps) {
+    if (playing && rc2AnimPos >= rc2Laps) { rc2AnimPos = 0; const s = document.getElementById('rc2-scrubber'); if (s) s.value = 0; }
+    rc2Playing = playing; rc2LastTs = null;
+    if (playing && !rc2RafId) rc2RafId = requestAnimationFrame(rc2Tick);
   }
+  // Track map
+  if (repDuration > 0) {
+    repPlaying = playing;
+    const repBtn = document.getElementById('rep-play-btn');
+    if (repBtn) { repBtn.textContent = playing ? '⏸ Pause' : '▶ Play'; repBtn.className = playing ? 'btn pause' : 'btn play'; }
+    replaySend({ cmd: playing ? 'replay_play' : 'replay_pause',
+                 speed: parseFloat(document.getElementById('rep-speed').value) });
+  }
+  const btn = document.getElementById('sync-play-btn');
+  if (btn) { btn.textContent = playing ? '⏸ Pause' : '▶ Play'; btn.className = playing ? 'btn pause' : 'btn play'; }
+}
+
+function syncReset() {
+  // Race chart reset
+  rc2Playing = false; rc2AnimPos = 0; rc2LastTs = null;
+  const s = document.getElementById('rc2-scrubber'); if (s) s.value = 0;
+  rc2Draw();
+  // Track map reset — seek to beginning
+  if (repDuration > 0) {
+    repPlaying = false;
+    replaySend({ cmd: 'replay_pause' });
+    replaySend({ cmd: 'replay_seek', position: 0 });
+    const repBtn = document.getElementById('rep-play-btn');
+    if (repBtn) { repBtn.textContent = '▶ Play'; repBtn.className = 'btn play'; }
+  }
+  const btn = document.getElementById('sync-play-btn');
+  if (btn) { btn.textContent = '▶ Play'; btn.className = 'btn play'; }
+}
+
+function loadBoth() {
+  // Reset sync state
+  const btn = document.getElementById('sync-play-btn');
+  if (btn) { btn.textContent = '▶ Play'; btn.className = 'btn play'; }
+  const year  = document.getElementById('rc2-year').value;
+  const round = document.getElementById('rc2-round').value;
+  document.getElementById('rep-year').value  = year;
+  document.getElementById('rep-round').value = round;
+  loadRaceChart();
+  replayLoad();
 }
 
 async function loadRaceChart() {
@@ -2052,7 +2086,8 @@ function rc2Tick(ts) {
     rc2AnimPos += (ts - rc2LastTs) / rc2Speed;
     if (rc2AnimPos >= rc2Laps) {
       rc2AnimPos = rc2Laps; rc2Playing = false;
-      document.getElementById('rc2-playbtn').textContent = '▶';
+      const _syncBtn = document.getElementById('sync-play-btn');
+      if (_syncBtn) { _syncBtn.textContent = '▶ Play'; _syncBtn.className = 'btn play'; }
     }
     document.getElementById('rc2-scrubber').value = rc2AnimPos;
   }
