@@ -1935,11 +1935,15 @@ function syncPlay() {
     rc2Playing = playing; rc2LastTs = null;
     if (playing && !rc2RafId) rc2RafId = requestAnimationFrame(rc2Tick);
   }
-  // Track map
+  // Track map — seek to race start offset if at the very beginning
   if (repDuration > 0) {
     repPlaying = playing;
-    replaySend({ cmd: playing ? 'replay_play' : 'replay_pause',
-                 speed: parseFloat(document.getElementById('rep-speed').value) });
+    const speed = parseFloat(document.getElementById('rep-speed').value);
+    if (playing && repCurrentT < 1 && repRaceStartOffset > 0) {
+      // Snap to where racing actually begins
+      replaySend({ cmd: 'replay_seek', pct: repRaceStartOffset / repDuration });
+    }
+    replaySend({ cmd: playing ? 'replay_play' : 'replay_pause', speed });
   }
   const btn = document.getElementById('sync-play-btn');
   if (btn) { btn.textContent = playing ? '⏸ Pause' : '▶ Play'; btn.className = playing ? 'btn pause' : 'btn play'; }
@@ -1950,11 +1954,12 @@ function syncReset() {
   rc2Playing = false; rc2AnimPos = 0; rc2LastTs = null;
   const s = document.getElementById('rc2-scrubber'); if (s) s.value = 0;
   rc2Draw();
-  // Track map reset — seek to beginning
+  // Track map reset — seek to race start
   if (repDuration > 0) {
     repPlaying = false;
     replaySend({ cmd: 'replay_pause' });
-    replaySend({ cmd: 'replay_seek', position: 0 });
+    const pct = repRaceStartOffset > 0 ? repRaceStartOffset / repDuration : 0;
+    replaySend({ cmd: 'replay_seek', pct });
   }
   const btn = document.getElementById('sync-play-btn');
   if (btn) { btn.textContent = '▶ Play'; btn.className = 'btn play'; }
