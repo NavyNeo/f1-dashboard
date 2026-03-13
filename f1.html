@@ -1448,9 +1448,9 @@ function repOnMessage(e) {
     if (topic === '__replay_status__') {
       repSetStatus(data.state, data.msg, data.pct);
       if (data.state === 'ready' || data.state === 'finished') {
-        const btn = document.getElementById('rep-play-btn');
-        btn.textContent = data.state === 'finished' ? '↩ Replay' : '▶ Play';
-        btn.className = 'btn play';
+        repPlaying = false;
+        const btn = document.getElementById('sync-play-btn');
+        if (btn) { btn.textContent = '▶ Play'; btn.className = 'btn play'; }
       }
     } else if (topic === '__replay_ready__') {
       repDuration = data.duration;
@@ -1936,8 +1936,6 @@ function syncPlay() {
   // Track map
   if (repDuration > 0) {
     repPlaying = playing;
-    const repBtn = document.getElementById('rep-play-btn');
-    if (repBtn) { repBtn.textContent = playing ? '⏸ Pause' : '▶ Play'; repBtn.className = playing ? 'btn pause' : 'btn play'; }
     replaySend({ cmd: playing ? 'replay_play' : 'replay_pause',
                  speed: parseFloat(document.getElementById('rep-speed').value) });
   }
@@ -1955,8 +1953,6 @@ function syncReset() {
     repPlaying = false;
     replaySend({ cmd: 'replay_pause' });
     replaySend({ cmd: 'replay_seek', position: 0 });
-    const repBtn = document.getElementById('rep-play-btn');
-    if (repBtn) { repBtn.textContent = '▶ Play'; repBtn.className = 'btn play'; }
   }
   const btn = document.getElementById('sync-play-btn');
   if (btn) { btn.textContent = '▶ Play'; btn.className = 'btn play'; }
