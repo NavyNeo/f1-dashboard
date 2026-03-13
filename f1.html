@@ -756,6 +756,7 @@ let repConnection = null;         // WebSocket to proxy
 let repPlaying = false;
 let repDuration = 0;              // session duration in seconds
 let repCurrentT = 0;
+let repRaceStartOffset = 0;       // seconds into replay where racing actually begins
 let repDrivers = {};              // num -> {code, team, color}
 let repTrackData = null;
 let repPositions = {};
