@@ -1447,8 +1447,8 @@ function repOnMessage(e) {
       repSetStatus(data.state, data.msg, data.pct);
       if (data.state === 'ready' || data.state === 'finished') {
         repPlaying = false;
-        const btn = document.getElementById('sync-play-btn');
-        if (btn) { btn.textContent = '▶ Play'; btn.className = 'btn play'; }
+        const btn = document.getElementById('rep-play-btn');
+        if (btn) { btn.textContent = '▶'; btn.className = 'btn play'; }
       }
     } else if (topic === '__replay_ready__') {
       repDuration = data.duration;
@@ -2047,8 +2047,7 @@ function rc2Tick(ts) {
     rc2AnimPos += (ts - rc2LastTs) / rc2Speed;
     if (rc2AnimPos >= rc2Laps) {
       rc2AnimPos = rc2Laps; rc2Playing = false;
-      const _syncBtn = document.getElementById('sync-play-btn');
-      if (_syncBtn) { _syncBtn.textContent = '▶ Play'; _syncBtn.className = 'btn play'; }
+      document.getElementById('rc2-playbtn').textContent = '▶';
     }
     document.getElementById('rc2-scrubber').value = rc2AnimPos;
   }
