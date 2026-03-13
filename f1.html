@@ -1505,7 +1505,18 @@ function repSetProgress(state, pct) {
   }
 }
 
-function replayToggle() { syncPlay(); } // delegates to shared sync button
+function replayToggle() {
+  if (repDuration === 0) return;
+  repPlaying = !repPlaying;
+  const btn = document.getElementById('rep-play-btn');
+  btn.textContent = repPlaying ? '⏸' : '▶';
+  btn.className = repPlaying ? 'btn pause' : 'btn play';
+  if (repPlaying && repCurrentT < 1 && repRaceStartOffset > 0) {
+    replaySend({ cmd: 'replay_seek', pct: repRaceStartOffset / repDuration });
+  }
+  replaySend({ cmd: repPlaying ? 'replay_play' : 'replay_pause',
+               speed: parseFloat(document.getElementById('rep-speed').value) });
+}
 
 function replaySetSpeed() {
   const speed = parseFloat(document.getElementById('rep-speed').value);
@@ -1923,53 +1934,11 @@ let rc2LastTs   = null;
 let rc2RafId    = null;
 let rc2Speed    = 150;  // ms per lap
 
-function syncPlay() {
-  if (!rc2Laps && repDuration === 0) return;
-  const playing = !rc2Playing;
-  if (rc2Laps) {
-    if (playing && rc2AnimPos >= rc2Laps) { rc2AnimPos = 0; const s = document.getElementById('rc2-scrubber'); if (s) s.value = 0; }
-    rc2Playing = playing; rc2LastTs = null;
-    if (playing && !rc2RafId) rc2RafId = requestAnimationFrame(rc2Tick);
-  }
-  // Map is driven by chart position via syncMapToChart() in rc2Tick — no need for replay_play
-  const btn = document.getElementById('sync-play-btn');
-  if (btn) { btn.textContent = playing ? '⏸ Pause' : '▶ Play'; btn.className = playing ? 'btn pause' : 'btn play'; }
-}
-
-function syncReset() {
-  rc2Playing = false; rc2AnimPos = 0; rc2LastTs = null;
-  const s = document.getElementById('rc2-scrubber'); if (s) s.value = 0;
-  rc2Draw();
-  syncMapToChart(); // seek map to race start (lap 0)
-  const btn = document.getElementById('sync-play-btn');
-  if (btn) { btn.textContent = '▶ Play'; btn.className = 'btn play'; }
-}
-
-// Drive map position from chart lap position (called from rc2Tick)
-let _lastMapSeek = 0;
-function syncMapToChart() {
-  if (repDuration <= 0) return;
-  const now = Date.now();
-  if (now - _lastMapSeek < 150) return; // throttle to ~7Hz
-  _lastMapSeek = now;
-  // Map chart lap fraction → race time fraction (within the racing portion)
-  const lapFrac = rc2Laps > 0 ? rc2AnimPos / rc2Laps : 0; // 0..1
-  const raceLen = repDuration - repRaceStartOffset;
-  const mapTime = repRaceStartOffset + lapFrac * raceLen;
-  const pct = Math.min(1, mapTime / repDuration);
-  replaySend({ cmd: 'replay_seek', pct });
-}
-
 function loadBoth() {
-  // Reset sync state
-  const btn = document.getElementById('sync-play-btn');
-  if (btn) { btn.textContent = '▶ Play'; btn.className = 'btn play'; }
   const year  = document.getElementById('rc2-year').value;
   const round = document.getElementById('rc2-round').value;
   document.getElementById('rep-year').value  = year;
   document.getElementById('rep-round').value = round;
-  // Sync map speed to current chart speed slider value
-  rc2SetSpeed(document.getElementById('rc2-speed').value);
   loadRaceChart();
   replayLoad();
 }
@@ -2082,7 +2051,6 @@ function rc2Tick(ts) {
       if (_syncBtn) { _syncBtn.textContent = '▶ Play'; _syncBtn.className = 'btn play'; }
     }
     document.getElementById('rc2-scrubber').value = rc2AnimPos;
-    syncMapToChart(); // keep map in sync with chart position
   }
   rc2LastTs = ts;
   rc2Draw();
@@ -2208,16 +2176,24 @@ function rc2Draw() {
   } catch(e) { console.error('[RC2] draw error:', e); }
 }
 
-function rc2PlayPause() { syncPlay(); } // delegates to shared sync button
+function rc2PlayPause() {
+  if (!rc2Laps) return;
+  if (rc2AnimPos >= rc2Laps) { rc2AnimPos = 0; document.getElementById('rc2-scrubber').value = 0; }
+  rc2Playing = !rc2Playing; rc2LastTs = null;
+  document.getElementById('rc2-playbtn').textContent = rc2Playing ? '⏸' : '▶';
+  if (!rc2RafId) rc2RafId = requestAnimationFrame(rc2Tick);
+}
 
-function rc2Reset() { syncReset(); } // delegates to shared sync button
+function rc2Reset() {
+  rc2Playing = false; rc2AnimPos = 0; rc2LastTs = null;
+  document.getElementById('rc2-playbtn').textContent = '▶';
+  const s = document.getElementById('rc2-scrubber'); if (s) s.value = 0;
+  rc2Draw();
+}
 
 function rc2Scrub(val) {
   rc2Playing = false; rc2LastTs = null; rc2AnimPos = parseFloat(val);
-  const btn = document.getElementById('sync-play-btn');
-  if (btn) { btn.textContent = '▶ Play'; btn.className = 'btn play'; }
-  _lastMapSeek = 0; // force immediate sync
-  syncMapToChart();
+  document.getElementById('rc2-playbtn').textContent = '▶';
 }
 
 function rc2SetSpeed(val) {
