@@ -1966,6 +1966,8 @@ function loadBoth() {
   const round = document.getElementById('rc2-round').value;
   document.getElementById('rep-year').value  = year;
   document.getElementById('rep-round').value = round;
+  // Sync map speed to current chart speed slider value
+  rc2SetSpeed(document.getElementById('rc2-speed').value);
   loadRaceChart();
   replayLoad();
 }
