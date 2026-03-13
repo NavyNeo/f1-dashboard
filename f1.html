@@ -2214,8 +2214,14 @@ function rc2Scrub(val) {
 }
 
 function rc2SetSpeed(val) {
-  // val=1 → 1100ms/lap (slow), val=11 → 150ms/lap, val=12 → 50ms/lap (fast)
-  rc2Speed = val >= 12 ? 50 : Math.round(1200 - val * 100);
+  val = parseInt(val);
+  // Chart: val=1→1100ms/lap (slow) … val=11→100ms/lap … val=12→30ms/lap (fast)
+  rc2Speed = val >= 12 ? 30 : Math.round(1200 - val * 100);
+  // Map: val=1→5x … val=6→30x … val=12→120x  (proportional real-time multiplier)
+  const mapSpeed = Math.round(5 + (val - 1) * (115 / 11));
+  replaySend({ cmd: 'replay_speed', speed: mapSpeed });
+  document.getElementById('rep-speed').value =
+    [1,5,10,30,60].reduce((prev,cur) => Math.abs(cur-mapSpeed)<Math.abs(prev-mapSpeed)?cur:prev);
 }
 </script>
 </body>
