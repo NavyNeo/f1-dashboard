@@ -2215,24 +2215,14 @@ function rc2Draw() {
   } catch(e) { console.error('[RC2] draw error:', e); }
 }
 
-function rc2PlayPause() {
-  if (!rc2Laps) return;
-  if (rc2AnimPos >= rc2Laps) { rc2AnimPos = 0; document.getElementById('rc2-scrubber').value = 0; }
-  rc2Playing = !rc2Playing; rc2LastTs = null;
-  document.getElementById('rc2-playbtn').textContent = rc2Playing ? '⏸' : '▶';
-  if (!rc2RafId) rc2RafId = requestAnimationFrame(rc2Tick);
-}
+function rc2PlayPause() { syncPlay(); } // delegates to shared sync button
 
-function rc2Reset() {
-  rc2Playing = false; rc2AnimPos = 0; rc2LastTs = null;
-  document.getElementById('rc2-playbtn').textContent = '▶';
-  const s = document.getElementById('rc2-scrubber'); if (s) s.value = 0;
-  rc2Draw();
-}
+function rc2Reset() { syncReset(); } // delegates to shared sync button
 
 function rc2Scrub(val) {
   rc2Playing = false; rc2LastTs = null; rc2AnimPos = parseFloat(val);
-  document.getElementById('rc2-playbtn').textContent = '▶';
+  const btn = document.getElementById('sync-play-btn');
+  if (btn) { btn.textContent = '▶ Play'; btn.className = 'btn play'; }
 }
 
 function rc2SetSpeed(val) {
