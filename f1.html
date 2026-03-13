@@ -1420,7 +1420,7 @@ function replayLoad() {
   const round   = document.getElementById('rep-round').value;
   const session = document.getElementById('rep-session').value;
 
-  repPlaying = false; repDuration = 0; repCurrentT = 0;
+  repPlaying = false; repDuration = 0; repCurrentT = 0; repRaceStartOffset = 0;
   repDrivers = {}; repTrackData = null; repPositions = {};
   document.getElementById('rep-controls').style.display = 'none';
   document.getElementById('rep-legend').innerHTML = '<div style="color:var(--muted);font-size:12px;padding:8px">Loading…</div>';
@@ -1927,42 +1927,40 @@ let rc2RafId    = null;
 let rc2Speed    = 150;  // ms per lap
 
 function syncPlay() {
-  if (!rc2Laps && repDuration === 0) return; // nothing loaded yet
+  if (!rc2Laps && repDuration === 0) return;
   const playing = !rc2Playing;
-  // Race chart
   if (rc2Laps) {
     if (playing && rc2AnimPos >= rc2Laps) { rc2AnimPos = 0; const s = document.getElementById('rc2-scrubber'); if (s) s.value = 0; }
     rc2Playing = playing; rc2LastTs = null;
     if (playing && !rc2RafId) rc2RafId = requestAnimationFrame(rc2Tick);
   }
-  // Track map — seek to race start offset if at the very beginning
-  if (repDuration > 0) {
-    repPlaying = playing;
-    const speed = parseFloat(document.getElementById('rep-speed').value);
-    if (playing && repCurrentT < 1 && repRaceStartOffset > 0) {
-      // Snap to where racing actually begins
-      replaySend({ cmd: 'replay_seek', pct: repRaceStartOffset / repDuration });
-    }
-    replaySend({ cmd: playing ? 'replay_play' : 'replay_pause', speed });
-  }
+  // Map is driven by chart position via syncMapToChart() in rc2Tick — no need for replay_play
   const btn = document.getElementById('sync-play-btn');
   if (btn) { btn.textContent = playing ? '⏸ Pause' : '▶ Play'; btn.className = playing ? 'btn pause' : 'btn play'; }
 }
 
 function syncReset() {
-  // Race chart reset
   rc2Playing = false; rc2AnimPos = 0; rc2LastTs = null;
   const s = document.getElementById('rc2-scrubber'); if (s) s.value = 0;
   rc2Draw();
-  // Track map reset — seek to race start
-  if (repDuration > 0) {
-    repPlaying = false;
-    replaySend({ cmd: 'replay_pause' });
-    const pct = repRaceStartOffset > 0 ? repRaceStartOffset / repDuration : 0;
-    replaySend({ cmd: 'replay_seek', pct });
-  }
+  syncMapToChart(); // seek map to race start (lap 0)
   const btn = document.getElementById('sync-play-btn');
   if (btn) { btn.textContent = '▶ Play'; btn.className = 'btn play'; }
+}
+
+// Drive map position from chart lap position (called from rc2Tick)
+let _lastMapSeek = 0;
+function syncMapToChart() {
+  if (repDuration <= 0) return;
+  const now = Date.now();
+  if (now - _lastMapSeek < 150) return; // throttle to ~7Hz
+  _lastMapSeek = now;
+  // Map chart lap fraction → race time fraction (within the racing portion)
+  const lapFrac = rc2Laps > 0 ? rc2AnimPos / rc2Laps : 0; // 0..1
+  const raceLen = repDuration - repRaceStartOffset;
+  const mapTime = repRaceStartOffset + lapFrac * raceLen;
+  const pct = Math.min(1, mapTime / repDuration);
+  replaySend({ cmd: 'replay_seek', pct });
 }
 
 function loadBoth() {
@@ -2087,6 +2085,7 @@ function rc2Tick(ts) {
       if (_syncBtn) { _syncBtn.textContent = '▶ Play'; _syncBtn.className = 'btn play'; }
     }
     document.getElementById('rc2-scrubber').value = rc2AnimPos;
+    syncMapToChart(); // keep map in sync with chart position
   }
   rc2LastTs = ts;
   rc2Draw();
@@ -2220,17 +2219,14 @@ function rc2Scrub(val) {
   rc2Playing = false; rc2LastTs = null; rc2AnimPos = parseFloat(val);
   const btn = document.getElementById('sync-play-btn');
   if (btn) { btn.textContent = '▶ Play'; btn.className = 'btn play'; }
+  _lastMapSeek = 0; // force immediate sync
+  syncMapToChart();
 }
 
 function rc2SetSpeed(val) {
-  val = parseInt(val);
-  // Chart: val=1→1100ms/lap (slow) … val=11→100ms/lap … val=12→30ms/lap (fast)
-  rc2Speed = val >= 12 ? 30 : Math.round(1200 - val * 100);
-  // Map: val=1→5x … val=6→30x … val=12→120x  (proportional real-time multiplier)
-  const mapSpeed = Math.round(5 + (val - 1) * (115 / 11));
-  replaySend({ cmd: 'replay_speed', speed: mapSpeed });
-  document.getElementById('rep-speed').value =
-    [1,5,10,30,60].reduce((prev,cur) => Math.abs(cur-mapSpeed)<Math.abs(prev-mapSpeed)?cur:prev);
+  // val=1 → 1100ms/lap (slow), val=11 → 100ms/lap, val=12 → 50ms/lap (fast)
+  // Map speed is irrelevant — map position is driven by chart position via syncMapToChart()
+  rc2Speed = val >= 12 ? 50 : Math.round(1200 - val * 100);
 }
 </script>
 </body>
