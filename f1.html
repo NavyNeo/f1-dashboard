@@ -1120,7 +1120,8 @@ async function loadResults(type) {
 
 async function loadLaps() {
   const year = document.getElementById('lap-year').value;
-  const round = document.getElementById('lap-round').value;
+  const round = document.getElementById('lap-race').value;
+  if (!round) return;
   const lap = document.getElementById('lap-num').value;
   setLoading('lap-loading', true);
   document.getElementById('lap-status').innerHTML = '';
@@ -1155,7 +1156,8 @@ async function loadLaps() {
 
 async function loadAllLaps() {
   const year = document.getElementById('lap-year').value;
-  const round = document.getElementById('lap-round').value;
+  const round = document.getElementById('lap-race').value;
+  if (!round) return;
   setLoading('lap-loading', true);
   document.getElementById('lap-status').innerHTML = 'Loading all laps (this may take a moment)…';
   const tbody = document.getElementById('lap-body');
@@ -1992,7 +1994,8 @@ let rc2Speed    = 150;  // ms per lap
 
 async function loadRaceChart() {
   const year  = document.getElementById('rc2-year').value;
-  const round = document.getElementById('rc2-round').value;
+  const round = document.getElementById('rc2-race').value;
+  if (!round) return;
   const status = document.getElementById('rc2-status');
   rc2Playing = false; rc2AnimPos = 0; rc2Drivers = {}; rc2Laps = 0; rc2RaceName = '';
   status.textContent = 'Fetching race data…';
