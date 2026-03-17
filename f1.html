@@ -450,9 +450,60 @@
   #rc2-speed { accent-color: var(--red); width: 90px; cursor: pointer; }
   #rc2-scrubber { accent-color: var(--red); flex: 1; min-width: 120px; cursor: pointer; }
   #rc2-status { font-size: 12px; color: var(--t2); margin-bottom: 8px; min-height: 18px; font-family: 'Barlow Condensed', sans-serif; letter-spacing: 0.5px; }
+
+  /* ── Loading Screen ── */
+  #loading-screen {
+    position: fixed; inset: 0;
+    background: var(--bg);
+    z-index: 9999;
+    display: flex; align-items: center; justify-content: center;
+    transition: opacity 0.6s ease;
+  }
+  #loading-screen.fade-out { opacity: 0; pointer-events: none; }
+  .ls-inner { text-align: center; width: 360px; }
+  .ls-f1 {
+    font-family: 'Barlow Condensed', sans-serif;
+    font-weight: 900; font-size: 80px;
+    color: var(--red); letter-spacing: -4px; line-height: 1;
+  }
+  .ls-title {
+    font-family: 'Barlow Condensed', sans-serif;
+    font-weight: 600; font-size: 13px;
+    letter-spacing: 4px; text-transform: uppercase;
+    color: var(--t3); margin-bottom: 40px;
+  }
+  .ls-status {
+    font-size: 12px; color: var(--t2);
+    font-family: 'JetBrains Mono', monospace;
+    letter-spacing: 0.5px; margin-bottom: 12px;
+    min-height: 18px;
+  }
+  .ls-track {
+    background: var(--s2); border-radius: 4px;
+    height: 4px; overflow: hidden; margin-bottom: 10px;
+  }
+  .ls-fill {
+    height: 100%; background: var(--red);
+    border-radius: 4px; width: 0%;
+    transition: width 0.25s ease;
+  }
+  .ls-pct {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px; color: var(--t3);
+  }
 </style>
 </head>
 <body>
+
+<div id="loading-screen">
+  <div class="ls-inner">
+    <div class="ls-f1">F1</div>
+    <div class="ls-title">Timing Dashboard</div>
+    <div class="ls-status" id="ls-status">Loading race calendar…</div>
+    <div class="ls-track"><div class="ls-fill" id="ls-fill"></div></div>
+    <div class="ls-pct" id="ls-pct">0%</div>
+  </div>
+</div>
 
 <header>
   <div class="header-accent"></div>
@@ -2100,10 +2151,12 @@ async function loadRaceChart() {
   rc2Playing = false; rc2AnimPos = 0; rc2Drivers = {}; rc2Laps = 0; rc2RaceName = '';
   status.textContent = 'Fetching race data…';
 
-  // Try the selected round, then fall back to earlier rounds if no data yet
+  // Try the selected round (use cache first), then fall back to earlier rounds if no data yet
   let race = null;
   let tryRound = parseInt(round, 10);
   while (tryRound >= 1) {
+    const key = `${year}/${tryRound}`;
+    if (_resultsCache[key]) { race = _resultsCache[key]; break; }
     try {
       const resResp = await fetch(`${API}/${year}/${tryRound}/results.json`);
       const resJson = await resResp.json();
