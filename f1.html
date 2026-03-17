@@ -765,7 +765,7 @@ document.addEventListener('DOMContentLoaded', () => {
   const selects = ['sched-year','stand-year','res-year','lap-year','rc2-year','rep-year'];
   selects.forEach(id => {
     const sel = document.getElementById(id);
-    for (let y = CURRENT_YEAR; y >= 2018; y--) {
+    for (let y = CURRENT_YEAR; y >= 1950; y--) {
       sel.add(new Option(y, y));
     }
   });
