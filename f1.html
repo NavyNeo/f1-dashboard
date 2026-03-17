@@ -1472,7 +1472,8 @@ function handlePositionData(data) {
 
 function replayLoad() {
   const year    = document.getElementById('rep-year').value;
-  const round   = document.getElementById('rep-round').value;
+  const round   = document.getElementById('rep-race').value;
+  if (!round) return;
   const session = document.getElementById('rep-session').value;
 
   repPlaying = false; repDuration = 0; repCurrentT = 0; repRaceStartOffset = 0;
