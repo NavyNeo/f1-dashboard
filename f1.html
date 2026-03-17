@@ -507,7 +507,6 @@
   <div class="controls">
     <label>Season</label>
     <select id="sched-year" onchange="loadSchedule()"></select>
-    <button class="btn" onclick="loadSchedule()">Load</button>
   </div>
   <div class="loading" id="sched-loading"><div class="spinner"></div>Loading schedule…</div>
   <div class="table-wrap" id="sched-wrap">
@@ -525,7 +524,6 @@
   <div class="controls">
     <label>Season</label>
     <select id="stand-year" onchange="loadStandings()"></select>
-    <button class="btn" onclick="loadStandings()">Load</button>
   </div>
   <div class="loading" id="stand-loading"><div class="spinner"></div>Loading standings…</div>
   <div class="standings-grid">
@@ -673,7 +671,7 @@
     <label>Race</label>
     <select id="rep-race" onchange="replayLoad()" style="min-width:200px"><option value="">— select race —</option></select>
     <label>Session</label>
-    <select id="rep-session">
+    <select id="rep-session" onchange="replayLoad()">
       <option value="R">Race</option>
       <option value="Q">Qualifying</option>
       <option value="S">Sprint</option>
@@ -681,7 +679,6 @@
       <option value="FP2">FP2</option>
       <option value="FP3">FP3</option>
     </select>
-    <button class="btn" onclick="replayLoad()">Load</button>
     <div style="margin-left:auto;display:flex;align-items:center;gap:8px">
       <div class="conn-dot" id="map-live-dot"></div>
       <span id="map-live-label" style="font-size:12px;color:var(--t2)">Disconnected</span>
