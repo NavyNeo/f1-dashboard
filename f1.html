@@ -768,12 +768,31 @@ document.addEventListener('DOMContentLoaded', () => {
   // Auto-load data on start
   loadSchedule();
   loadStandings();
-  autoLoadLatestResults();
+  prefetchAllRaces().then(() => autoLoadLatestResults());
   // Clock
   updateClock();
   setInterval(updateClock, 1000);
   setInterval(updateCountdown, 1000);
 });
+
+// Cache of race lists: year -> [{round, name, date}]
+const _racesCache = {};
+
+async function prefetchAllRaces() {
+  try {
+    // Single API call returns every race in F1 history (~1100 races)
+    const data = await fetchJSON(`${API}/races.json?limit=1200`);
+    const races = data.MRData?.RaceTable?.Races || [];
+    // Group by season into the cache
+    for (const r of races) {
+      if (!_racesCache[r.season]) _racesCache[r.season] = [];
+      _racesCache[r.season].push({ round: r.round, name: r.raceName, date: r.date });
+    }
+    console.log(`[Prefetch] Loaded ${races.length} races across ${Object.keys(_racesCache).length} seasons`);
+  } catch(e) {
+    console.warn('[Prefetch] Failed to load all races:', e);
+  }
+}
 
 async function autoLoadLatestResults() {
   try {
@@ -786,19 +805,11 @@ async function autoLoadLatestResults() {
         const races = schedData.MRData?.RaceTable?.Races || [];
         if (!races.length) continue;
 
-        // Prefer races ≥3 days old (gives API time to publish results)
-        const cutoff = new Date();
-        cutoff.setDate(cutoff.getDate() - 3);
+        // Find the most recent race that has already happened
+        const now = new Date();
         let best = null;
         for (const r of races) {
-          if (new Date(r.date) <= cutoff) best = r.round;
-        }
-        // Fall back to any past race if nothing is 3+ days old
-        if (!best) {
-          const now = new Date();
-          for (const r of races) {
-            if (new Date(r.date) <= now) best = r.round;
-          }
+          if (new Date(r.date) <= now) best = r.round;
         }
         if (best) { year = String(tryYear); round = best; break; }
       } catch(e) {
@@ -843,7 +854,13 @@ async function populateRaces(prefix) {
     }
     const races = _racesCache[year];
     raceEl.innerHTML = races.map(r => `<option value="${r.round}">${r.round}. ${r.name}</option>`).join('');
-    // Auto-trigger load for the newly selected (first) race
+    // Select the most recent past race (or last race of the year for historical years)
+    const now = new Date();
+    let bestRound = races[races.length - 1].round; // default: last race of year
+    for (const r of races) {
+      if (new Date(r.date) <= now) bestRound = r.round;
+    }
+    raceEl.value = bestRound;
     raceEl.dispatchEvent(new Event('change'));
   } catch(e) {
     raceEl.innerHTML = '<option value="">Failed to load</option>';
