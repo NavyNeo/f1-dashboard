@@ -769,13 +769,36 @@ document.addEventListener('DOMContentLoaded', () => {
       sel.add(new Option(y, y));
     }
   });
-  // Auto-load schedule on start
+  // Auto-load data on start
   loadSchedule();
+  loadStandings();
+  autoLoadLatestResults();
   // Clock
   updateClock();
   setInterval(updateClock, 1000);
   setInterval(updateCountdown, 1000);
 });
+
+async function autoLoadLatestResults() {
+  try {
+    // Fetch the most recently completed race
+    const data = await fetchJSON(`${API}/current/last/results.json?limit=1`);
+    const race = data.MRData?.RaceTable?.Races?.[0];
+    if (!race) return;
+    const round = race.round;
+    const year  = race.season;
+    // Set the selects to match
+    document.getElementById('res-year').value  = year;
+    document.getElementById('res-round').value = round;
+    document.getElementById('lap-year').value  = year;
+    document.getElementById('lap-round').value = round;
+    document.getElementById('rc2-year').value  = year;
+    document.getElementById('rc2-round').value = round;
+    document.getElementById('rep-year').value  = year;
+    document.getElementById('rep-round').value = round;
+    loadResults('race');
+  } catch(e) { /* silently skip if offline or no data */ }
+}
 
 function updateClock() {
   const now = new Date();
