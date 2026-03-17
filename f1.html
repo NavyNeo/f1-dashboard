@@ -446,7 +446,7 @@
   .track-map-canvas { display: block; width: 100%; aspect-ratio: 16/10; background: #09090f; border-radius: 6px 6px 0 0; }
 
   /* ── Race Chart ── */
-  #rc2-canvas { display: block; width: 100%; border-radius: 8px; background: #f7f7f8; }
+  #rc2-canvas { display: block; width: 100%; border-radius: 8px; background: var(--s1); }
   #rc2-speed { accent-color: var(--red); width: 90px; cursor: pointer; }
   #rc2-scrubber { accent-color: var(--red); flex: 1; min-width: 120px; cursor: pointer; }
   #rc2-status { font-size: 12px; color: var(--t2); margin-bottom: 8px; min-height: 18px; font-family: 'Barlow Condensed', sans-serif; letter-spacing: 0.5px; }
@@ -2048,11 +2048,11 @@ function rc2Draw() {
   const maxPos = 22; // F1 grid has up to 22 drivers
   const total = rc2Laps;
 
-  ctx.fillStyle = '#f7f7f8';
+  ctx.fillStyle = '#13131a';
   ctx.fillRect(0, 0, W, H);
 
   if (!total) {
-    ctx.fillStyle = '#aaa'; ctx.font = '14px system-ui'; ctx.textAlign = 'center';
+    ctx.fillStyle = '#52526a'; ctx.font = '14px system-ui'; ctx.textAlign = 'center';
     ctx.fillText('Select a year & round, then press Load', W/2, H/2);
     return;
   }
@@ -2063,31 +2063,31 @@ function rc2Draw() {
   // Grid lines
   for (let p = 1; p <= maxPos; p++) {
     const y = yOf(p);
-    ctx.strokeStyle = p === 1 ? '#ccc' : '#e8e8e8';
+    ctx.strokeStyle = p === 1 ? 'rgba(255,255,255,0.15)' : 'rgba(255,255,255,0.06)';
     ctx.lineWidth = p === 1 ? 1.5 : 1;
     ctx.beginPath(); ctx.moveTo(pL, y); ctx.lineTo(pL + plotW, y); ctx.stroke();
   }
 
   // Y-axis labels
-  ctx.fillStyle = '#999'; ctx.font = '11px system-ui'; ctx.textAlign = 'right';
+  ctx.fillStyle = '#52526a'; ctx.font = '11px system-ui'; ctx.textAlign = 'right';
   for (let p = 1; p <= maxPos; p++) ctx.fillText(p, pL - 7, yOf(p) + 4);
 
   // X-axis lap labels
   const step = total <= 30 ? 5 : total <= 60 ? 10 : 15;
-  ctx.fillStyle = '#999'; ctx.font = '11px system-ui'; ctx.textAlign = 'center';
+  ctx.fillStyle = '#52526a'; ctx.font = '11px system-ui'; ctx.textAlign = 'center';
   for (let l = 0; l <= total; l += step) {
     const x = xOf(l);
     ctx.fillText(l === 0 ? 'Grid' : `L${l}`, x, pT + plotH + 18);
-    ctx.strokeStyle = '#ebebeb'; ctx.lineWidth = 1;
+    ctx.strokeStyle = 'rgba(255,255,255,0.05)'; ctx.lineWidth = 1;
     ctx.beginPath(); ctx.moveTo(x, pT); ctx.lineTo(x, pT + plotH); ctx.stroke();
   }
 
   // Title
-  ctx.fillStyle = '#111'; ctx.font = 'bold 15px "Barlow Condensed", system-ui'; ctx.textAlign = 'center';
+  ctx.fillStyle = '#9898b0'; ctx.font = 'bold 15px "Barlow Condensed", system-ui'; ctx.textAlign = 'center';
   ctx.fillText(`${rc2RaceName} — Position Chart`, W/2, 26);
 
   // Axis labels
-  ctx.fillStyle = '#bbb'; ctx.font = '11px system-ui';
+  ctx.fillStyle = '#52526a'; ctx.font = '11px system-ui';
   ctx.textAlign = 'center';
   ctx.fillText('Lap', pL + plotW/2, H - 6);
   ctx.save(); ctx.translate(12, pT + plotH/2); ctx.rotate(-Math.PI/2);
@@ -2096,7 +2096,7 @@ function rc2Draw() {
   // Current-lap marker
   const cur = Math.min(rc2AnimPos, total);
   const curX = xOf(cur);
-  ctx.strokeStyle = 'rgba(0,0,0,0.12)'; ctx.lineWidth = 1.5;
+  ctx.strokeStyle = 'rgba(255,255,255,0.2)'; ctx.lineWidth = 1.5;
   ctx.setLineDash([5,5]);
   ctx.beginPath(); ctx.moveTo(curX, pT); ctx.lineTo(curX, pT + plotH); ctx.stroke();
   ctx.setLineDash([]);
