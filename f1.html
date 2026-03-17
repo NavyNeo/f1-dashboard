@@ -777,83 +777,53 @@ document.addEventListener('DOMContentLoaded', () => {
 
 async function autoLoadLatestResults() {
   try {
-    let round, year;
+    let round = null, year = null;
 
-    // Try fetching the current (or prior) year's schedule and picking the latest completed round
+    // Try current year first, then previous year
     for (const tryYear of [CURRENT_YEAR, CURRENT_YEAR - 1]) {
       try {
         const schedData = await fetchJSON(`${API}/${tryYear}.json?limit=30`);
         const races = schedData.MRData?.RaceTable?.Races || [];
-        if (!races.length) { console.warn(`[AutoLoad] No races found for ${tryYear}`); continue; }
-        year = String(tryYear);
-        const today = new Date();
-        let latestRound = null;
+        if (!races.length) continue;
+
+        // Prefer races ≥3 days old (gives API time to publish results)
+        const cutoff = new Date();
+        cutoff.setDate(cutoff.getDate() - 3);
+        let best = null;
         for (const r of races) {
-          if (new Date(r.date) <= today) latestRound = r.round;
+          if (new Date(r.date) <= cutoff) best = r.round;
         }
-        round = latestRound || races[0].round;
-        console.log(`[AutoLoad] Using year=${year} round=${round}`);
-        break;
+        // Fall back to any past race if nothing is 3+ days old
+        if (!best) {
+          const now = new Date();
+          for (const r of races) {
+            if (new Date(r.date) <= now) best = r.round;
+          }
+        }
+        if (best) { year = String(tryYear); round = best; break; }
       } catch(e) {
-        console.warn(`[AutoLoad] Schedule fetch failed for ${tryYear}:`, e);
+        console.warn(`[AutoLoad] Schedule failed for ${tryYear}:`, e);
       }
     }
 
-    // Fallback: try current/last endpoint
-    if (!round) {
-      try {
-        const data = await fetchJSON(`${API}/current/last/results.json?limit=1`);
-        const race = data.MRData?.RaceTable?.Races?.[0];
-        if (race) { round = race.round; year = race.season; }
-      } catch(e) {
-        console.warn('[AutoLoad] current/last fetch failed:', e);
-      }
-    }
+    if (!round || !year) { console.warn('[AutoLoad] No race found'); return; }
+    console.log(`[AutoLoad] year=${year} round=${round}`);
 
-    if (!round || !year) {
-      console.warn('[AutoLoad] Could not determine latest race');
-      return;
-    }
-
-    // Find the most recent round that actually has results in the API
-    let resultRound = parseInt(round, 10);
-    let hasResults = false;
-    while (resultRound >= 1) {
-      try {
-        const test = await fetchJSON(`${API}/${year}/${resultRound}/race.json`);
-        if (test.MRData?.RaceTable?.Races?.length > 0) { hasResults = true; break; }
-      } catch(e) { /* no results for this round yet */ }
-      resultRound--;
-    }
-    // If current year has no results at all, try previous year's last round
-    if (!hasResults) {
-      year = String(parseInt(year, 10) - 1);
-      try {
-        const prev = await fetchJSON(`${API}/${year}.json?limit=30`);
-        const prevRaces = prev.MRData?.RaceTable?.Races || [];
-        resultRound = parseInt(prevRaces[prevRaces.length - 1]?.round || '1', 10);
-        hasResults = true;
-      } catch(e) { console.warn('[AutoLoad] Fallback year also failed'); return; }
-    }
-    round = String(resultRound);
-    console.log(`[AutoLoad] Loading year=${year} round=${round}`);
-
-    // Set all year selects
     ['res-year','lap-year','rc2-year','rep-year'].forEach(id => {
       const el = document.getElementById(id);
       if (el) el.value = year;
     });
-    // Populate all race dropdowns with that year's races
     await populateAllRaces(year);
-    // Set selected race to latest round with results
     ['res-race','lap-race','rc2-race','rep-race'].forEach(id => {
       const el = document.getElementById(id);
       if (el) el.value = round;
     });
-    // Auto-load results
+
+    // Kick off all data loads in parallel
     loadResults('race');
+    loadRaceChart();
   } catch(e) {
-    console.warn('[AutoLoad] Unexpected error:', e);
+    console.warn('[AutoLoad] Error:', e);
   }
 }
 
@@ -873,6 +843,8 @@ async function populateRaces(prefix) {
     }
     const races = _racesCache[year];
     raceEl.innerHTML = races.map(r => `<option value="${r.round}">${r.round}. ${r.name}</option>`).join('');
+    // Auto-trigger load for the newly selected (first) race
+    raceEl.dispatchEvent(new Event('change'));
   } catch(e) {
     raceEl.innerHTML = '<option value="">Failed to load</option>';
   }
@@ -1162,7 +1134,10 @@ async function loadResults(type) {
       });
     }
   } catch(e) {
-    tbody.innerHTML = empty('Error loading results: ' + e.message);
+    const msg = e.message?.includes('400') || e.message?.includes('404')
+      ? 'Results not yet available for this race'
+      : 'Error loading results: ' + e.message;
+    tbody.innerHTML = empty(msg);
   } finally {
     setLoading('res-loading', false);
   }
