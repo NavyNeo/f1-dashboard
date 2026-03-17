@@ -553,8 +553,8 @@
   <div class="controls">
     <label>Season</label>
     <select id="res-year"></select>
-    <label>Round</label>
-    <input type="number" id="res-round" value="1" min="1" max="24" style="width:70px">
+    <label>Race</label>
+    <select id="res-race" onchange="loadResults('race')" style="min-width:200px"><option value="">— select race —</option></select>
     <button class="btn" onclick="loadResults('race')">Race Results</button>
     <button class="btn secondary" onclick="loadResults('qualifying')">Qualifying</button>
     <button class="btn secondary" onclick="loadResults('sprint')">Sprint</button>
