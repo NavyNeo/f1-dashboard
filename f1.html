@@ -815,6 +815,29 @@ async function autoLoadLatestResults() {
       return;
     }
 
+    // Find the most recent round that actually has results in the API
+    let resultRound = parseInt(round, 10);
+    let hasResults = false;
+    while (resultRound >= 1) {
+      try {
+        const test = await fetchJSON(`${API}/${year}/${resultRound}/race.json`);
+        if (test.MRData?.RaceTable?.Races?.length > 0) { hasResults = true; break; }
+      } catch(e) { /* no results for this round yet */ }
+      resultRound--;
+    }
+    // If current year has no results at all, try previous year's last round
+    if (!hasResults) {
+      year = String(parseInt(year, 10) - 1);
+      try {
+        const prev = await fetchJSON(`${API}/${year}.json?limit=30`);
+        const prevRaces = prev.MRData?.RaceTable?.Races || [];
+        resultRound = parseInt(prevRaces[prevRaces.length - 1]?.round || '1', 10);
+        hasResults = true;
+      } catch(e) { console.warn('[AutoLoad] Fallback year also failed'); return; }
+    }
+    round = String(resultRound);
+    console.log(`[AutoLoad] Loading year=${year} round=${round}`);
+
     // Set all year selects
     ['res-year','lap-year','rc2-year','rep-year'].forEach(id => {
       const el = document.getElementById(id);
@@ -822,7 +845,7 @@ async function autoLoadLatestResults() {
     });
     // Populate all race dropdowns with that year's races
     await populateAllRaces(year);
-    // Set selected race to latest round
+    // Set selected race to latest round with results
     ['res-race','lap-race','rc2-race','rep-race'].forEach(id => {
       const el = document.getElementById(id);
       if (el) el.value = round;
