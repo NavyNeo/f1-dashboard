@@ -777,11 +777,41 @@ document.addEventListener('DOMContentLoaded', () => {
 
 async function autoLoadLatestResults() {
   try {
-    const data = await fetchJSON(`${API}/current/last/results.json?limit=1`);
-    const race = data.MRData?.RaceTable?.Races?.[0];
-    if (!race) return;
-    const round = race.round;
-    const year  = race.season;
+    let round, year;
+
+    // Try fetching the current year's schedule and picking the latest completed round
+    try {
+      const schedData = await fetchJSON(`${API}/${CURRENT_YEAR}.json?limit=30`);
+      const races = schedData.MRData?.RaceTable?.Races || [];
+      year = String(CURRENT_YEAR);
+      // Find latest race that has already happened (date <= today)
+      const today = new Date();
+      let latestRound = null;
+      for (const r of races) {
+        const raceDate = new Date(r.date);
+        if (raceDate <= today) latestRound = r.round;
+      }
+      round = latestRound || (races.length > 0 ? races[0].round : null);
+    } catch(e) {
+      console.warn('[AutoLoad] Schedule fetch failed:', e);
+    }
+
+    // Fallback: try current/last endpoint
+    if (!round) {
+      try {
+        const data = await fetchJSON(`${API}/current/last/results.json?limit=1`);
+        const race = data.MRData?.RaceTable?.Races?.[0];
+        if (race) { round = race.round; year = race.season; }
+      } catch(e) {
+        console.warn('[AutoLoad] current/last fetch failed:', e);
+      }
+    }
+
+    if (!round || !year) {
+      console.warn('[AutoLoad] Could not determine latest race');
+      return;
+    }
+
     // Set all year selects
     ['res-year','lap-year','rc2-year','rep-year'].forEach(id => {
       const el = document.getElementById(id);
@@ -796,7 +826,9 @@ async function autoLoadLatestResults() {
     });
     // Auto-load results
     loadResults('race');
-  } catch(e) { /* silently skip */ }
+  } catch(e) {
+    console.warn('[AutoLoad] Unexpected error:', e);
+  }
 }
 
 // Cache of race lists: year -> [{round, name}]
