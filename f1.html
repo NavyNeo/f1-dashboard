@@ -768,7 +768,10 @@ document.addEventListener('DOMContentLoaded', () => {
   // Auto-load data on start
   loadSchedule();
   loadStandings();
-  prefetchAllRaces().then(() => autoLoadLatestResults());
+  prefetchAllRaces().then(() => {
+    autoLoadLatestResults();
+    prefetchRecentRaceData(); // background prefetch — no await
+  });
   // Clock
   updateClock();
   setInterval(updateClock, 1000);
@@ -776,7 +779,54 @@ document.addEventListener('DOMContentLoaded', () => {
 });
 
 // Cache of race lists: year -> [{round, name, date}]
-const _racesCache = {};
+const _racesCache   = {};
+const _resultsCache = {}; // `${year}/${round}` -> race result object
+const _lapsCache    = {}; // `${year}/${round}` -> laps array
+
+// Run N async tasks at a time
+async function _pool(tasks, n = 5) {
+  for (let i = 0; i < tasks.length; i += n)
+    await Promise.all(tasks.slice(i, i + n).map(f => f()));
+}
+
+async function prefetchRecentRaceData() {
+  const years = [CURRENT_YEAR, CURRENT_YEAR - 1, CURRENT_YEAR - 2];
+  for (const year of years) {
+    const races = (_racesCache[String(year)] || []).filter(r => new Date(r.date) <= new Date());
+    if (!races.length) continue;
+
+    // Pre-fetch results (5 at a time)
+    await _pool(races.map(r => async () => {
+      const key = `${year}/${r.round}`;
+      if (_resultsCache[key]) return;
+      try {
+        const d = await fetchJSON(`${API}/${year}/${r.round}/results.json`);
+        const race = d.MRData?.RaceTable?.Races?.[0];
+        if (race) _resultsCache[key] = race;
+      } catch(e) {}
+    }));
+
+    // Pre-fetch laps (3 at a time — larger payloads)
+    await _pool(races.map(r => async () => {
+      const key = `${year}/${r.round}`;
+      if (_lapsCache[key]) return;
+      try {
+        let laps = [], offset = 0, total = Infinity;
+        while (laps.length < total) {
+          const d = await fetchJSON(`${API}/${year}/${r.round}/laps.json?limit=100&offset=${offset}`);
+          if (!d.MRData?.RaceTable?.Races?.[0]?.Laps) break;
+          total = parseInt(d.MRData.total);
+          laps = laps.concat(d.MRData.RaceTable.Races[0].Laps);
+          offset += 100;
+          if (offset >= total) break;
+        }
+        if (laps.length) _lapsCache[key] = laps;
+      } catch(e) {}
+    }), 3);
+
+    console.log(`[Prefetch] Cached ${races.length} races for ${year}`);
+  }
+}
 
 async function prefetchAllRaces() {
   try {
@@ -1075,8 +1125,14 @@ async function loadResults(type) {
   const tbody = document.getElementById('res-body');
 
   try {
-    const data = await fetchJSON(`${API}/${year}/${round}/${type}.json`);
-    const races = data.MRData.RaceTable.Races;
+    const cacheKey = `${year}/${round}`;
+    let races;
+    if (type === 'race' && _resultsCache[cacheKey]) {
+      races = [_resultsCache[cacheKey]];
+    } else {
+      const data = await fetchJSON(`${API}/${year}/${round}/${type}.json`);
+      races = data.MRData.RaceTable.Races;
+    }
 
     if (!races.length) {
       tbody.innerHTML = empty('No results found for this round');
@@ -2074,17 +2130,24 @@ async function loadRaceChart() {
       };
     });
 
-    // Fetch lap data page by page (API max 100 per page)
-    status.textContent = `${rc2RaceName} — fetching laps…`;
-    let laps = [], offset = 0, pageTotal = Infinity;
-    while (laps.length < pageTotal) {
-      const r = await fetch(`${API}/${year}/${round}/laps.json?limit=100&offset=${offset}`);
-      const j = await r.json();
-      if (!j.MRData?.RaceTable?.Races?.[0]?.Laps) break;
-      pageTotal = parseInt(j.MRData.total);
-      laps = laps.concat(j.MRData.RaceTable.Races[0].Laps);
-      offset += 100;
-      if (offset >= pageTotal) break;
+    // Use pre-fetched laps cache if available, otherwise fetch
+    const lapKey = `${year}/${tryRound}`;
+    let laps;
+    if (_lapsCache[lapKey]) {
+      laps = _lapsCache[lapKey];
+    } else {
+      status.textContent = `${rc2RaceName} — fetching laps…`;
+      laps = [];
+      let offset = 0, pageTotal = Infinity;
+      while (laps.length < pageTotal) {
+        const r = await fetch(`${API}/${year}/${tryRound}/laps.json?limit=100&offset=${offset}`);
+        const j = await r.json();
+        if (!j.MRData?.RaceTable?.Races?.[0]?.Laps) break;
+        pageTotal = parseInt(j.MRData.total);
+        laps = laps.concat(j.MRData.RaceTable.Races[0].Laps);
+        offset += 100;
+        if (offset >= pageTotal) break;
+      }
     }
 
     rc2Laps = laps.length;
