@@ -838,9 +838,6 @@ async function autoLoadLatestResults() {
   }
 }
 
-// Cache of race lists: year -> [{round, name}]
-const _racesCache = {};
-
 async function populateRaces(prefix) {
   const yearEl = document.getElementById(prefix === 'rc2' ? 'rc2-year' : prefix === 'rep' ? 'rep-year' : `${prefix}-year`);
   const raceEl = document.getElementById(prefix === 'rc2' ? 'rc2-race' : prefix === 'rep' ? 'rep-race' : `${prefix}-race`);
