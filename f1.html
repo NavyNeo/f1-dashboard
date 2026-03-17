@@ -461,19 +461,21 @@
   }
   #loading-screen.fade-out { opacity: 0; pointer-events: none; }
   .ls-inner { text-align: center; width: 360px; }
-  .ls-logo { width: 160px; margin: 0 auto 12px; display: block; }
+  .ls-logo { width: 180px; margin: 0 auto 8px; display: block; mix-blend-mode: multiply; filter: invert(1); }
   .ls-title {
     font-family: 'Barlow Condensed', sans-serif;
     font-weight: 600; font-size: 13px;
     letter-spacing: 4px; text-transform: uppercase;
-    color: var(--t3); margin-bottom: 40px;
+    color: var(--t3); margin-bottom: 36px;
   }
-  .ls-status {
-    font-size: 12px; color: var(--t2);
-    font-family: 'JetBrains Mono', monospace;
-    letter-spacing: 0.5px; margin-bottom: 12px;
-    min-height: 18px;
+  .ls-fact {
+    font-size: 13px; color: var(--t2);
+    font-family: 'Barlow', sans-serif;
+    line-height: 1.6; margin-bottom: 28px;
+    min-height: 44px;
+    transition: opacity 0.5s ease;
   }
+  .ls-fact.hidden { opacity: 0; }
   .ls-track {
     background: var(--s2); border-radius: 4px;
     height: 4px; overflow: hidden; margin-bottom: 10px;
@@ -481,7 +483,7 @@
   .ls-fill {
     height: 100%; background: var(--red);
     border-radius: 4px; width: 0%;
-    transition: width 0.25s ease;
+    transition: width 0.3s ease;
   }
   .ls-pct {
     font-family: 'JetBrains Mono', monospace;
@@ -493,9 +495,9 @@
 
 <div id="loading-screen">
   <div class="ls-inner">
-    <div class="ls-f1">F1</div>
+    <img class="ls-logo" src="https://cdn-8.motorsport.com/images/amp/68ey3q40/s3/f1-abu-dhabi-gp-2017-f1-logo-6614911.jpg" alt="F1">
     <div class="ls-title">Timing Dashboard</div>
-    <div class="ls-status" id="ls-status">Loading race calendar…</div>
+    <div class="ls-fact" id="ls-fact"></div>
     <div class="ls-track"><div class="ls-fill" id="ls-fill"></div></div>
     <div class="ls-pct" id="ls-pct">0%</div>
   </div>
@@ -803,10 +805,48 @@ let _repPanelLast = 0;
 // INIT
 // ═══════════════════════════════════════════════════════════════
 
-function _setLoadingProgress(pct, msg) {
+const _F1_FACTS = [
+  "Lewis Hamilton holds the record for most race wins with 103 victories.",
+  "An F1 car generates enough downforce to theoretically drive upside-down at 130 km/h.",
+  "Ferrari is the only team to have competed in every F1 season since 1950.",
+  "The fastest pit stop ever recorded was 1.80 seconds by Red Bull Racing in 2023.",
+  "F1 drivers can lose up to 3 kg of body weight during a single race from sweating.",
+  "Michael Schumacher holds the record for most World Championships with 7 titles.",
+  "Ayrton Senna won 3 World Championships and 41 Grand Prix victories.",
+  "An F1 engine produces around 1,000 horsepower from a 1.6L turbocharged V6.",
+  "The Monaco Grand Prix has been held on the same street circuit since 1929.",
+  "F1 tyres reach operating temperatures of 100–120°C during a race.",
+  "An F1 car can brake from 300 km/h to 0 in under 4 seconds.",
+  "The carbon fibre monocoque chassis can withstand impacts of over 25G.",
+  "Max Verstappen became the youngest race winner in F1 history at 18 years old.",
+  "During braking, F1 drivers experience forces of up to 6G.",
+  "A full set of F1 wet tyres can disperse up to 65 litres of water per second.",
+  "The DRS (Drag Reduction System) was introduced in 2011 to aid overtaking.",
+  "Jenson Button won the 2009 World Championship with the Brawn GP team.",
+  "Nigel Mansell set a record by winning 9 races in the 1992 season.",
+  "The first Formula 1 World Championship race took place at Silverstone on 13 May 1950.",
+  "Ground effect aerodynamics returned to F1 in 2022 for the first time since 1983.",
+];
+let _factsInterval = null;
+function _startFacts() {
+  let idx = Math.floor(Math.random() * _F1_FACTS.length);
+  const el = document.getElementById('ls-fact');
+  if (!el) return;
+  el.textContent = _F1_FACTS[idx];
+  _factsInterval = setInterval(() => {
+    el.classList.add('hidden');
+    setTimeout(() => {
+      idx = (idx + 1) % _F1_FACTS.length;
+      el.textContent = _F1_FACTS[idx];
+      el.classList.remove('hidden');
+    }, 500);
+  }, 4000);
+}
+function _stopFacts() { clearInterval(_factsInterval); }
+
+function _setLoadingProgress(pct) {
   document.getElementById('ls-fill').style.width = Math.round(pct * 100) + '%';
   document.getElementById('ls-pct').textContent  = Math.round(pct * 100) + '%';
-  if (msg) document.getElementById('ls-status').textContent = msg;
 }
 
 document.addEventListener('DOMContentLoaded', async () => {
@@ -823,35 +863,38 @@ document.addEventListener('DOMContentLoaded', async () => {
   updateClock();
   setInterval(updateClock, 1000);
   setInterval(updateCountdown, 1000);
+  _startFacts();
 
-  // Phase 1 (3%): fetch schedules for the 3 recent years we'll be prefetching
-  _setLoadingProgress(0, 'Loading race calendars…');
-  const recentYears = [CURRENT_YEAR, CURRENT_YEAR - 1, CURRENT_YEAR - 2];
-  await Promise.all(recentYears.map(async y => {
-    try {
-      const d = await fetchJSON(`${API}/${y}.json?limit=30`);
-      _racesCache[String(y)] = (d.MRData?.RaceTable?.Races || [])
-        .map(r => ({ round: r.round, name: r.raceName, date: r.date }));
-    } catch(e) {}
-  }));
-  _setLoadingProgress(0.03, 'Calendars loaded — prefetching race data…');
+  const _dismissLoader = () => {
+    _stopFacts();
+    _setLoadingProgress(1);
+    const screen = document.getElementById('loading-screen');
+    if (screen) { screen.classList.add('fade-out'); setTimeout(() => screen.remove(), 650); }
+    loadSchedule();
+    loadStandings();
+    autoLoadLatestResults();
+    prefetchAllRaces();
+  };
 
-  // Phase 2 (3–100%): prefetch results + laps for last 3 years
-  await prefetchRecentRaceData((pct, msg) => {
-    _setLoadingProgress(0.03 + pct * 0.97, msg);
-  });
+  try {
+    // Phase 1: fetch schedules for the 3 recent years
+    const recentYears = [CURRENT_YEAR, CURRENT_YEAR - 1, CURRENT_YEAR - 2];
+    await Promise.all(recentYears.map(async y => {
+      try {
+        const d = await fetchJSON(`${API}/${y}.json?limit=30`);
+        _racesCache[String(y)] = (d.MRData?.RaceTable?.Races || [])
+          .map(r => ({ round: r.round, name: r.raceName, date: r.date }));
+      } catch(e) {}
+    }));
+    _setLoadingProgress(0.03);
 
-  // All done — hide loading screen
-  _setLoadingProgress(1, 'Ready');
-  const screen = document.getElementById('loading-screen');
-  screen.classList.add('fade-out');
-  setTimeout(() => screen.remove(), 650);
+    // Phase 2: prefetch results + laps
+    await prefetchRecentRaceData(pct => _setLoadingProgress(0.03 + pct * 0.97));
+  } catch(e) {
+    console.warn('[Init] Prefetch error:', e);
+  }
 
-  // Kick off background loads + fetch all historical race names quietly
-  loadSchedule();
-  loadStandings();
-  autoLoadLatestResults();
-  prefetchAllRaces(); // fills remaining years for dropdown — no await needed
+  _dismissLoader();
 });
 
 // Cache of race lists: year -> [{round, name, date}]
