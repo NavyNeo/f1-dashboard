@@ -577,7 +577,7 @@
     <label>Season</label>
     <select id="lap-year" onchange="populateRaces('lap')"></select>
     <label>Race</label>
-    <select id="lap-race" onchange="" style="min-width:200px"><option value="">— select race —</option></select>
+    <select id="lap-race" onchange="loadLaps()" style="min-width:200px"><option value="">— select race —</option></select>
     <label>Lap</label>
     <input type="number" id="lap-num" value="1" min="1" max="78" style="width:70px" placeholder="All">
     <button class="btn" onclick="loadLaps()">Load Laps</button>
@@ -652,7 +652,6 @@
     <select id="rc2-year" onchange="populateRaces('rc2')"></select>
     <label>Race</label>
     <select id="rc2-race" onchange="loadRaceChart()" style="min-width:200px"><option value="">— select race —</option></select>
-    <button class="btn" onclick="loadRaceChart()">Load</button>
     <div style="width:1px;height:20px;background:var(--border);margin:0 4px"></div>
     <button class="btn play" id="rc2-playbtn" onclick="rc2PlayPause()">▶ Play</button>
     <button class="btn secondary" onclick="rc2Reset()" title="Reset to start">↺</button>
@@ -672,7 +671,7 @@
     <label>Season</label>
     <select id="rep-year" onchange="populateRaces('rep')"></select>
     <label>Race</label>
-    <select id="rep-race" style="min-width:200px"><option value="">— select race —</option></select>
+    <select id="rep-race" onchange="replayLoad()" style="min-width:200px"><option value="">— select race —</option></select>
     <label>Session</label>
     <select id="rep-session">
       <option value="R">Race</option>
