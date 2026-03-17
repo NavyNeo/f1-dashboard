@@ -447,11 +447,9 @@
 
   /* ── Race Chart ── */
   #rc2-canvas { display: block; width: 100%; border-radius: 8px; background: #f7f7f8; }
-  .rc2-controls { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-bottom: 12px; }
-  .rc2-controls label { color: var(--muted); font-size: 12px; }
   #rc2-speed { accent-color: var(--red); width: 90px; cursor: pointer; }
   #rc2-scrubber { accent-color: var(--red); flex: 1; min-width: 120px; cursor: pointer; }
-  #rc2-status { font-size: 12px; color: var(--muted); margin-bottom: 10px; min-height: 16px; }
+  #rc2-status { font-size: 12px; color: var(--t2); margin-bottom: 8px; min-height: 18px; font-family: 'Barlow Condensed', sans-serif; letter-spacing: 0.5px; }
 </style>
 </head>
 <body>
@@ -633,7 +631,7 @@
             <th>Tyre</th><th>Age</th><th>Status</th>
           </tr></thead>
           <tbody id="live-body">
-            <tr><td colspan="13" class="empty"><div class="icon">🔴</div>Click Connect to start live timing stream<br><small style="color:var(--muted);margin-top:8px;display:block">Only active during F1 sessions · Uses F1 live timing API</small></td></tr>
+            <tr><td colspan="13" class="empty"><div class="icon">🔴</div>Click Connect to start live timing stream<br><small style="color:var(--t3);margin-top:8px;display:block">Only active during F1 sessions · Uses F1 live timing API</small></td></tr>
           </tbody>
         </table>
       </div>
