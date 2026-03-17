@@ -29,6 +29,7 @@
     --hard:   #d8d8d8;
     --inter:  #39b54a;
     --wet:    #0067ff;
+    --muted:  #9898b0;  /* alias for --t2 */
   }
 
   * { box-sizing: border-box; margin: 0; padding: 0; }
@@ -488,7 +489,7 @@
     </div>
     <div>
       <div class="label">Circuit</div>
-      <div class="value" id="nr-circuit" style="font-size:14px;color:var(--muted)">—</div>
+      <div class="value" id="nr-circuit" style="font-size:14px;color:var(--t2)">—</div>
     </div>
     <div>
       <div class="label">Date</div>
@@ -647,19 +648,19 @@
 <!-- ══════════════════════════════════════════════════════════ RACE CHART -->
 <div id="tab-racechart" class="tab">
   <div class="section-title">Race Position Chart</div>
-  <div class="controls" style="margin-bottom:12px">
+  <div class="section-sub">Animated lap-by-lap position chart for any race</div>
+  <div class="controls">
     <label>Season</label>
     <select id="rc2-year"></select>
     <label>Round</label>
     <input id="rc2-round" type="number" min="1" max="24" value="1" style="width:52px">
     <button class="btn" onclick="loadRaceChart()">Load</button>
-  </div>
-  <div class="controls rc2-controls" style="margin-bottom:6px">
-    <button class="btn play" id="rc2-playbtn" onclick="rc2PlayPause()">▶</button>
-    <button class="btn" onclick="rc2Reset()" style="font-size:13px">↺</button>
+    <div style="width:1px;height:20px;background:var(--border);margin:0 4px"></div>
+    <button class="btn play" id="rc2-playbtn" onclick="rc2PlayPause()">▶ Play</button>
+    <button class="btn secondary" onclick="rc2Reset()" title="Reset to start">↺</button>
     <label>Speed</label>
     <input id="rc2-speed" type="range" min="1" max="12" value="11" oninput="rc2SetSpeed(this.value)">
-    <input id="rc2-scrubber" type="range" min="0" max="0" value="0" step="0.1" oninput="rc2Scrub(this.value)">
+    <input id="rc2-scrubber" type="range" min="0" max="0" value="0" step="0.1" oninput="rc2Scrub(this.value)" title="Scrub through laps">
   </div>
   <div id="rc2-status"></div>
   <canvas id="rc2-canvas" width="1600" height="800"></canvas>
@@ -668,7 +669,8 @@
 <!-- ══════════════════════════════════════════════════════════ TRACK MAP -->
 <div id="tab-replay" class="tab">
   <div class="section-title">Track Map</div>
-  <div class="controls" style="margin-bottom:12px">
+  <div class="section-sub">Replay car positions from any session — requires proxy.py running locally</div>
+  <div class="controls">
     <label>Season</label>
     <select id="rep-year"></select>
     <label>Round</label>
@@ -705,7 +707,7 @@
     </div>
     <span id="rep-time" style="font-size:11px">0:00</span>
   </div>
-  <div class="rep-status" id="rep-status" style="font-size:11px">Select a session and press Load</div>
+  <div class="rep-status" id="rep-status">Start proxy.py, then select a session and press Load</div>
   <div class="load-bar-wrap" id="load-bar-wrap"><div class="load-bar-fill" id="load-bar-fill"></div></div>
   <div class="track-map-layout">
     <div class="track-panel" style="padding:0">
