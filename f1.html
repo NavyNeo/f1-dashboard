@@ -807,7 +807,13 @@ let _repPanelLast = 0;
 // INIT
 // ═══════════════════════════════════════════════════════════════
 
-document.addEventListener('DOMContentLoaded', () => {
+function _setLoadingProgress(pct, msg) {
+  document.getElementById('ls-fill').style.width = Math.round(pct * 100) + '%';
+  document.getElementById('ls-pct').textContent  = Math.round(pct * 100) + '%';
+  if (msg) document.getElementById('ls-status').textContent = msg;
+}
+
+document.addEventListener('DOMContentLoaded', async () => {
   // Populate year selects
   const selects = ['sched-year','stand-year','res-year','lap-year','rc2-year','rep-year'];
   selects.forEach(id => {
@@ -816,17 +822,40 @@ document.addEventListener('DOMContentLoaded', () => {
       sel.add(new Option(y, y));
     }
   });
-  // Auto-load data on start
-  loadSchedule();
-  loadStandings();
-  prefetchAllRaces().then(() => {
-    autoLoadLatestResults();
-    prefetchRecentRaceData(); // background prefetch — no await
-  });
-  // Clock
+
+  // Clock starts immediately
   updateClock();
   setInterval(updateClock, 1000);
   setInterval(updateCountdown, 1000);
+
+  // Phase 1 (3%): fetch schedules for the 3 recent years we'll be prefetching
+  _setLoadingProgress(0, 'Loading race calendars…');
+  const recentYears = [CURRENT_YEAR, CURRENT_YEAR - 1, CURRENT_YEAR - 2];
+  await Promise.all(recentYears.map(async y => {
+    try {
+      const d = await fetchJSON(`${API}/${y}.json?limit=30`);
+      _racesCache[String(y)] = (d.MRData?.RaceTable?.Races || [])
+        .map(r => ({ round: r.round, name: r.raceName, date: r.date }));
+    } catch(e) {}
+  }));
+  _setLoadingProgress(0.03, 'Calendars loaded — prefetching race data…');
+
+  // Phase 2 (3–100%): prefetch results + laps for last 3 years
+  await prefetchRecentRaceData((pct, msg) => {
+    _setLoadingProgress(0.03 + pct * 0.97, msg);
+  });
+
+  // All done — hide loading screen
+  _setLoadingProgress(1, 'Ready');
+  const screen = document.getElementById('loading-screen');
+  screen.classList.add('fade-out');
+  setTimeout(() => screen.remove(), 650);
+
+  // Kick off background loads + fetch all historical race names quietly
+  loadSchedule();
+  loadStandings();
+  autoLoadLatestResults();
+  prefetchAllRaces(); // fills remaining years for dropdown — no await needed
 });
 
 // Cache of race lists: year -> [{round, name, date}]
@@ -840,43 +869,54 @@ async function _pool(tasks, n = 5) {
     await Promise.all(tasks.slice(i, i + n).map(f => f()));
 }
 
-async function prefetchRecentRaceData() {
+async function prefetchRecentRaceData(onProgress) {
   const years = [CURRENT_YEAR, CURRENT_YEAR - 1, CURRENT_YEAR - 2];
-  for (const year of years) {
-    const races = (_racesCache[String(year)] || []).filter(r => new Date(r.date) <= new Date());
-    if (!races.length) continue;
+  const now = new Date();
 
-    // Pre-fetch results (5 at a time)
-    await _pool(races.map(r => async () => {
-      const key = `${year}/${r.round}`;
-      if (_resultsCache[key]) return;
+  // Build flat list of all past races across the 3 years
+  const allRaces = [];
+  for (const year of years) {
+    (_racesCache[String(year)] || [])
+      .filter(r => new Date(r.date) <= now)
+      .forEach(r => allRaces.push({ year: String(year), round: r.round, name: r.name }));
+  }
+
+  const total = allRaces.length * 2; // results + laps
+  let completed = 0;
+  const tick = (msg) => { completed++; if (onProgress) onProgress(completed / total, msg); };
+
+  // Pre-fetch results (5 at a time)
+  await _pool(allRaces.map(r => async () => {
+    const key = `${r.year}/${r.round}`;
+    if (!_resultsCache[key]) {
       try {
-        const d = await fetchJSON(`${API}/${year}/${r.round}/results.json`);
+        const d = await fetchJSON(`${API}/${r.year}/${r.round}/results.json`);
         const race = d.MRData?.RaceTable?.Races?.[0];
         if (race) _resultsCache[key] = race;
       } catch(e) {}
-    }));
+    }
+    tick(`${r.year} · ${r.name} — results`);
+  }));
 
-    // Pre-fetch laps (3 at a time — larger payloads)
-    await _pool(races.map(r => async () => {
-      const key = `${year}/${r.round}`;
-      if (_lapsCache[key]) return;
+  // Pre-fetch laps (3 at a time)
+  await _pool(allRaces.map(r => async () => {
+    const key = `${r.year}/${r.round}`;
+    if (!_lapsCache[key]) {
       try {
-        let laps = [], offset = 0, total = Infinity;
-        while (laps.length < total) {
-          const d = await fetchJSON(`${API}/${year}/${r.round}/laps.json?limit=100&offset=${offset}`);
+        let laps = [], offset = 0, lapTotal = Infinity;
+        while (laps.length < lapTotal) {
+          const d = await fetchJSON(`${API}/${r.year}/${r.round}/laps.json?limit=100&offset=${offset}`);
           if (!d.MRData?.RaceTable?.Races?.[0]?.Laps) break;
-          total = parseInt(d.MRData.total);
+          lapTotal = parseInt(d.MRData.total);
           laps = laps.concat(d.MRData.RaceTable.Races[0].Laps);
           offset += 100;
-          if (offset >= total) break;
+          if (offset >= lapTotal) break;
         }
         if (laps.length) _lapsCache[key] = laps;
       } catch(e) {}
-    }), 3);
-
-    console.log(`[Prefetch] Cached ${races.length} races for ${year}`);
-  }
+    }
+    tick(`${r.year} · ${r.name} — laps`);
+  }), 3);
 }
 
 async function prefetchAllRaces() {
