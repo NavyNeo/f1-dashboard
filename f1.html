@@ -2037,19 +2037,30 @@ let rc2RafId    = null;
 let rc2Speed    = 150;  // ms per lap
 
 async function loadRaceChart() {
-  const year  = document.getElementById('rc2-year').value;
-  const round = document.getElementById('rc2-race').value;
+  let year  = document.getElementById('rc2-year').value;
+  let round = document.getElementById('rc2-race').value;
   if (!round) return;
   const status = document.getElementById('rc2-status');
   rc2Playing = false; rc2AnimPos = 0; rc2Drivers = {}; rc2Laps = 0; rc2RaceName = '';
   status.textContent = 'Fetching race data…';
 
-  try {
-    const resResp = await fetch(`${API}/${year}/${round}/results.json`);
-    const resJson = await resResp.json();
+  // Try the selected round, then fall back to earlier rounds if no data yet
+  let race = null;
+  let tryRound = parseInt(round, 10);
+  while (tryRound >= 1) {
+    try {
+      const resResp = await fetch(`${API}/${year}/${tryRound}/results.json`);
+      const resJson = await resResp.json();
+      if (resJson.MRData?.RaceTable?.Races?.[0]) { race = resJson.MRData.RaceTable.Races[0]; break; }
+    } catch(e) {}
+    tryRound--;
+  }
 
-    const race = resJson.MRData?.RaceTable?.Races?.[0];
-    if (!race) { status.textContent = 'No data found for this race.'; return; }
+  try {
+    if (!race) { status.textContent = 'No data found.'; return; }
+    // Sync dropdown to the round that actually has data
+    const raceEl = document.getElementById('rc2-race');
+    if (raceEl) raceEl.value = String(tryRound);
     rc2RaceName = race.raceName;
 
     // Build driver map from results (grid pos + code + colour)
