@@ -779,21 +779,24 @@ async function autoLoadLatestResults() {
   try {
     let round, year;
 
-    // Try fetching the current year's schedule and picking the latest completed round
-    try {
-      const schedData = await fetchJSON(`${API}/${CURRENT_YEAR}.json?limit=30`);
-      const races = schedData.MRData?.RaceTable?.Races || [];
-      year = String(CURRENT_YEAR);
-      // Find latest race that has already happened (date <= today)
-      const today = new Date();
-      let latestRound = null;
-      for (const r of races) {
-        const raceDate = new Date(r.date);
-        if (raceDate <= today) latestRound = r.round;
+    // Try fetching the current (or prior) year's schedule and picking the latest completed round
+    for (const tryYear of [CURRENT_YEAR, CURRENT_YEAR - 1]) {
+      try {
+        const schedData = await fetchJSON(`${API}/${tryYear}.json?limit=30`);
+        const races = schedData.MRData?.RaceTable?.Races || [];
+        if (!races.length) { console.warn(`[AutoLoad] No races found for ${tryYear}`); continue; }
+        year = String(tryYear);
+        const today = new Date();
+        let latestRound = null;
+        for (const r of races) {
+          if (new Date(r.date) <= today) latestRound = r.round;
+        }
+        round = latestRound || races[0].round;
+        console.log(`[AutoLoad] Using year=${year} round=${round}`);
+        break;
+      } catch(e) {
+        console.warn(`[AutoLoad] Schedule fetch failed for ${tryYear}:`, e);
       }
-      round = latestRound || (races.length > 0 ? races[0].round : null);
-    } catch(e) {
-      console.warn('[AutoLoad] Schedule fetch failed:', e);
     }
 
     // Fallback: try current/last endpoint
