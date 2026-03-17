@@ -506,7 +506,7 @@
 
   <div class="controls">
     <label>Season</label>
-    <select id="sched-year"></select>
+    <select id="sched-year" onchange="loadSchedule()"></select>
     <button class="btn" onclick="loadSchedule()">Load</button>
   </div>
   <div class="loading" id="sched-loading"><div class="spinner"></div>Loading schedule…</div>
@@ -524,7 +524,7 @@
   <div class="section-sub">Driver & Constructor standings</div>
   <div class="controls">
     <label>Season</label>
-    <select id="stand-year"></select>
+    <select id="stand-year" onchange="loadStandings()"></select>
     <button class="btn" onclick="loadStandings()">Load</button>
   </div>
   <div class="loading" id="stand-loading"><div class="spinner"></div>Loading standings…</div>
@@ -552,7 +552,7 @@
   <div class="section-sub">Race and Qualifying results for any round</div>
   <div class="controls">
     <label>Season</label>
-    <select id="res-year"></select>
+    <select id="res-year" onchange="populateRaces('res')"></select>
     <label>Race</label>
     <select id="res-race" onchange="loadResults('race')" style="min-width:200px"><option value="">— select race —</option></select>
     <button class="btn" onclick="loadResults('race')">Race Results</button>
@@ -575,9 +575,9 @@
   <div class="section-sub">Lap-by-lap timing data for any race session</div>
   <div class="controls">
     <label>Season</label>
-    <select id="lap-year"></select>
-    <label>Round</label>
-    <input type="number" id="lap-round" value="1" min="1" max="24" style="width:70px">
+    <select id="lap-year" onchange="populateRaces('lap')"></select>
+    <label>Race</label>
+    <select id="lap-race" onchange="" style="min-width:200px"><option value="">— select race —</option></select>
     <label>Lap</label>
     <input type="number" id="lap-num" value="1" min="1" max="78" style="width:70px" placeholder="All">
     <button class="btn" onclick="loadLaps()">Load Laps</button>
@@ -649,9 +649,9 @@
   <div class="section-sub">Animated lap-by-lap position chart for any race</div>
   <div class="controls">
     <label>Season</label>
-    <select id="rc2-year"></select>
-    <label>Round</label>
-    <input id="rc2-round" type="number" min="1" max="24" value="1" style="width:52px">
+    <select id="rc2-year" onchange="populateRaces('rc2')"></select>
+    <label>Race</label>
+    <select id="rc2-race" onchange="loadRaceChart()" style="min-width:200px"><option value="">— select race —</option></select>
     <button class="btn" onclick="loadRaceChart()">Load</button>
     <div style="width:1px;height:20px;background:var(--border);margin:0 4px"></div>
     <button class="btn play" id="rc2-playbtn" onclick="rc2PlayPause()">▶ Play</button>
@@ -670,9 +670,9 @@
   <div class="section-sub">Replay car positions from any session — requires proxy.py running locally</div>
   <div class="controls">
     <label>Season</label>
-    <select id="rep-year"></select>
-    <label>Round</label>
-    <input id="rep-round" type="number" min="1" max="24" value="1" style="width:52px">
+    <select id="rep-year" onchange="populateRaces('rep')"></select>
+    <label>Race</label>
+    <select id="rep-race" style="min-width:200px"><option value="">— select race —</option></select>
     <label>Session</label>
     <select id="rep-session">
       <option value="R">Race</option>
@@ -781,23 +781,63 @@ document.addEventListener('DOMContentLoaded', () => {
 
 async function autoLoadLatestResults() {
   try {
-    // Fetch the most recently completed race
     const data = await fetchJSON(`${API}/current/last/results.json?limit=1`);
     const race = data.MRData?.RaceTable?.Races?.[0];
     if (!race) return;
     const round = race.round;
     const year  = race.season;
-    // Set the selects to match
-    document.getElementById('res-year').value  = year;
-    document.getElementById('res-round').value = round;
-    document.getElementById('lap-year').value  = year;
-    document.getElementById('lap-round').value = round;
-    document.getElementById('rc2-year').value  = year;
-    document.getElementById('rc2-round').value = round;
-    document.getElementById('rep-year').value  = year;
-    document.getElementById('rep-round').value = round;
+    // Set all year selects
+    ['res-year','lap-year','rc2-year','rep-year'].forEach(id => {
+      const el = document.getElementById(id);
+      if (el) el.value = year;
+    });
+    // Populate all race dropdowns with that year's races
+    await populateAllRaces(year);
+    // Set selected race to latest round
+    ['res-race','lap-race','rc2-race','rep-race'].forEach(id => {
+      const el = document.getElementById(id);
+      if (el) el.value = round;
+    });
+    // Auto-load results
     loadResults('race');
-  } catch(e) { /* silently skip if offline or no data */ }
+  } catch(e) { /* silently skip */ }
+}
+
+// Cache of race lists: year -> [{round, name}]
+const _racesCache = {};
+
+async function populateRaces(prefix) {
+  const yearEl = document.getElementById(prefix === 'rc2' ? 'rc2-year' : prefix === 'rep' ? 'rep-year' : `${prefix}-year`);
+  const raceEl = document.getElementById(prefix === 'rc2' ? 'rc2-race' : prefix === 'rep' ? 'rep-race' : `${prefix}-race`);
+  if (!yearEl || !raceEl) return;
+  const year = yearEl.value;
+  raceEl.innerHTML = '<option value="">Loading…</option>';
+  try {
+    if (!_racesCache[year]) {
+      const data = await fetchJSON(`${API}/${year}.json?limit=30`);
+      _racesCache[year] = (data.MRData?.RaceTable?.Races || []).map(r => ({ round: r.round, name: r.raceName }));
+    }
+    const races = _racesCache[year];
+    raceEl.innerHTML = races.map(r => `<option value="${r.round}">${r.round}. ${r.name}</option>`).join('');
+  } catch(e) {
+    raceEl.innerHTML = '<option value="">Failed to load</option>';
+  }
+}
+
+async function populateAllRaces(year) {
+  // Populate all race dropdowns for a given year at once (used on startup)
+  if (!_racesCache[year]) {
+    try {
+      const data = await fetchJSON(`${API}/${year}.json?limit=30`);
+      _racesCache[year] = (data.MRData?.RaceTable?.Races || []).map(r => ({ round: r.round, name: r.raceName }));
+    } catch(e) { return; }
+  }
+  const races = _racesCache[year];
+  const html = races.map(r => `<option value="${r.round}">${r.round}. ${r.name}</option>`).join('');
+  ['res-race','lap-race','rc2-race','rep-race'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.innerHTML = html;
+  });
 }
 
 function updateClock() {
@@ -986,7 +1026,8 @@ async function loadStandings() {
 
 async function loadResults(type) {
   const year = document.getElementById('res-year').value;
-  const round = document.getElementById('res-round').value;
+  const round = document.getElementById('res-race').value;
+  if (!round) return;
   setLoading('res-loading', true);
   document.getElementById('res-status').innerHTML = '';
 
