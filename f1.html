@@ -915,7 +915,7 @@ function _setLoadingProgress(pct) {
 
 document.addEventListener('DOMContentLoaded', async () => {
   // Populate year selects
-  const selects = ['sched-year','stand-year','res-year','lap-year','rc2-year','rep-year'];
+  const selects = ['sched-year','stand-year','res-year','lap-year','rc2-year','rep-year','an-year'];
   selects.forEach(id => {
     const sel = document.getElementById(id);
     for (let y = CURRENT_YEAR; y >= 1950; y--) {
@@ -2543,6 +2543,301 @@ function rc2Scrub(val) {
 function rc2SetSpeed(val) {
   // val=1 → 1100ms/lap (slow), val=11 → 100ms/lap, val=12 → 50ms/lap (fast)
   rc2Speed = val >= 12 ? 50 : Math.round(1200 - val * 100);
+}
+
+// ═══════════════════════════════════════════════════════════════
+// DATA & ANALYSIS
+// ═══════════════════════════════════════════════════════════════
+
+let _anLaps     = [];
+let _anResults  = null;
+let _anPitstops = [];
+let _anDrivers  = {};
+let _anTotalLaps = 0;
+
+async function loadAnalysis() {
+  const year  = document.getElementById('an-year').value;
+  const round = document.getElementById('an-race').value;
+  if (!round) return;
+  setLoading('an-loading', true);
+  try {
+    // Results
+    const key = `${year}/${round}`;
+    let resultsRace = _resultsCache[key];
+    if (!resultsRace) {
+      const d = await fetchJSON(`${API}/${year}/${round}/results.json`);
+      resultsRace = d.MRData?.RaceTable?.Races?.[0];
+      if (resultsRace) _resultsCache[key] = resultsRace;
+    }
+    if (!resultsRace) { setLoading('an-loading', false); return; }
+    _anResults = resultsRace;
+
+    // Build driver map keyed by finish position order
+    _anDrivers = {};
+    resultsRace.Results.forEach(r => {
+      _anDrivers[r.Driver.driverId] = {
+        code: r.Driver.code || r.Driver.driverId.slice(0,3).toUpperCase(),
+        name: `${r.Driver.givenName} ${r.Driver.familyName}`,
+        color: RC2_COLORS[r.Constructor.constructorId] || '#aaaaaa',
+        constructor: r.Constructor.name,
+        position: parseInt(r.position),
+      };
+    });
+
+    // Laps
+    let laps = _lapsCache[key];
+    if (!laps) {
+      laps = [];
+      let offset = 0, lapTotal = Infinity;
+      while (laps.length < lapTotal) {
+        const d = await fetchJSON(`${API}/${year}/${round}/laps.json?limit=100&offset=${offset}`);
+        if (!d.MRData?.RaceTable?.Races?.[0]?.Laps) break;
+        lapTotal = parseInt(d.MRData.total);
+        laps = laps.concat(d.MRData.RaceTable.Races[0].Laps);
+        offset += 100;
+        if (offset >= lapTotal) break;
+      }
+      if (laps.length) _lapsCache[key] = laps;
+    }
+    _anLaps = laps;
+    _anTotalLaps = laps.length;
+
+    // Pit stops
+    try {
+      const pd = await fetchJSON(`${API}/${year}/${round}/pitstops.json?limit=100`);
+      _anPitstops = pd.MRData?.RaceTable?.Races?.[0]?.PitStops || [];
+    } catch(e) { _anPitstops = []; }
+
+    // Populate driver dropdowns
+    const driverIds = Object.keys(_anDrivers);
+    const opts = driverIds.map(id => `<option value="${id}">${_anDrivers[id].code} — ${_anDrivers[id].name}</option>`).join('');
+    document.getElementById('an-d1').innerHTML = opts;
+    document.getElementById('an-d2').innerHTML = opts;
+    if (driverIds.length >= 2) {
+      document.getElementById('an-d1').value = driverIds[0];
+      document.getElementById('an-d2').value = driverIds[1];
+    }
+
+    anDrawComparison();
+    anRenderFastestLaps();
+    anDrawPitstops();
+    anDrawTyres();
+  } catch(e) {
+    console.warn('[Analysis]', e);
+  } finally {
+    setLoading('an-loading', false);
+  }
+}
+
+function anDrawComparison() {
+  const canvas = document.getElementById('an-compare-canvas');
+  if (!canvas || !_anLaps.length) return;
+  const ctx = canvas.getContext('2d');
+  const W = canvas.width, H = canvas.height;
+  const mode = document.getElementById('an-compare-mode').value;
+  const d1id = document.getElementById('an-d1').value;
+  const d2id = document.getElementById('an-d2').value;
+  if (!d1id || !d2id) return;
+  const d1 = _anDrivers[d1id], d2 = _anDrivers[d2id];
+
+  ctx.fillStyle = '#13131a';
+  ctx.fillRect(0, 0, W, H);
+
+  const d1Vals = [], d2Vals = [];
+  _anLaps.forEach(lap => {
+    const t1 = lap.Timings.find(t => t.driverId === d1id);
+    const t2 = lap.Timings.find(t => t.driverId === d2id);
+    if (mode === 'laptime') {
+      d1Vals.push(t1 ? rc2ParseTime(t1.time) : null);
+      d2Vals.push(t2 ? rc2ParseTime(t2.time) : null);
+    } else {
+      d1Vals.push(t1 ? parseInt(t1.position) : null);
+      d2Vals.push(t2 ? parseInt(t2.position) : null);
+    }
+  });
+
+  const PAD = { t: 28, r: 16, b: 36, l: 64 };
+  const pw = W - PAD.l - PAD.r, ph = H - PAD.t - PAD.b;
+  const nLaps = _anLaps.length;
+
+  const allVals = [...d1Vals, ...d2Vals].filter(v => v !== null);
+  if (!allVals.length) return;
+  let minV, maxV;
+  if (mode === 'laptime') {
+    const sorted = [...allVals].sort((a,b)=>a-b);
+    minV = sorted[Math.floor(sorted.length * 0.05)] * 0.998;
+    maxV = sorted[Math.floor(sorted.length * 0.95)] * 1.002;
+  } else {
+    minV = 1; maxV = Object.keys(_anDrivers).length;
+  }
+
+  // Grid
+  ctx.strokeStyle = 'rgba(255,255,255,0.06)'; ctx.lineWidth = 1;
+  for (let i = 0; i <= 4; i++) {
+    const y = PAD.t + (i/4)*ph;
+    ctx.beginPath(); ctx.moveTo(PAD.l, y); ctx.lineTo(PAD.l+pw, y); ctx.stroke();
+    const val = maxV - (i/4)*(maxV-minV);
+    ctx.fillStyle = '#52526a'; ctx.font = '10px JetBrains Mono,monospace'; ctx.textAlign = 'right';
+    if (mode === 'laptime') {
+      const m = Math.floor(val/60), s = (val%60).toFixed(3);
+      ctx.fillText(`${m}:${s.padStart(6,'0')}`, PAD.l-5, y+4);
+    } else {
+      ctx.fillText(`P${Math.round(val)}`, PAD.l-5, y+4);
+    }
+  }
+
+  // Lines
+  const drawLine = (vals, color) => {
+    ctx.strokeStyle = color; ctx.lineWidth = 2; ctx.lineJoin = 'round';
+    let started = false;
+    ctx.beginPath();
+    vals.forEach((v, i) => {
+      if (v === null || v < minV || v > maxV) { started = false; return; }
+      const x = PAD.l + (i/(nLaps-1||1))*pw;
+      const y = PAD.t + (maxV-v)/(maxV-minV)*ph;
+      if (!started) { ctx.moveTo(x,y); started=true; } else ctx.lineTo(x,y);
+    });
+    ctx.stroke();
+  };
+  drawLine(d1Vals, d1?.color || '#e10600');
+  drawLine(d2Vals, d2?.color || '#0067ff');
+
+  // Legend
+  [[d1, d1Vals, d1id],[d2, d2Vals, d2id]].forEach(([d, vals, id], li) => {
+    const x = PAD.l + li * 90;
+    ctx.fillStyle = d?.color || '#aaa';
+    ctx.beginPath(); ctx.arc(x, 14, 5, 0, Math.PI*2); ctx.fill();
+    ctx.fillStyle = '#fff'; ctx.font = '11px Barlow,sans-serif'; ctx.textAlign = 'left';
+    ctx.fillText(d ? d.code : id, x+9, 18);
+  });
+
+  // X axis
+  ctx.fillStyle = '#52526a'; ctx.font = '10px JetBrains Mono,monospace'; ctx.textAlign = 'center';
+  const step = Math.ceil(nLaps/10);
+  for (let l = 0; l <= nLaps; l += step)
+    ctx.fillText(l, PAD.l + (l/(nLaps||1))*pw, H-8);
+}
+
+function anRenderFastestLaps() {
+  const tbody = document.getElementById('an-fastlap-body');
+  if (!tbody || !_anLaps.length) return;
+  const fastest = {};
+  _anLaps.forEach((lap, li) => {
+    lap.Timings.forEach(t => {
+      const s = rc2ParseTime(t.time);
+      if (s === null) return;
+      if (!fastest[t.driverId] || s < fastest[t.driverId].secs)
+        fastest[t.driverId] = { secs: s, raw: t.time, lap: li+1 };
+    });
+  });
+  const sorted = Object.entries(fastest)
+    .filter(([id]) => _anDrivers[id])
+    .sort((a,b) => a[1].secs - b[1].secs);
+  const best = sorted[0]?.[1]?.secs || 1;
+  tbody.innerHTML = sorted.map(([id, data], i) => {
+    const d = _anDrivers[id];
+    const gap = i === 0 ? '<span style="color:var(--purple)">●</span> Fastest' : `+${(data.secs-best).toFixed(3)}s`;
+    const cls = i===0?'pos-1':i===1?'pos-2':i===2?'pos-3':'';
+    return `<tr>
+      <td class="${cls}"><strong>${i+1}</strong></td>
+      <td><span class="driver-code" style="background:${d.color}22;color:${d.color};border:1px solid ${d.color}44">${d.code}</span></td>
+      <td class="team-name">${d.constructor}</td>
+      <td><strong>${data.raw}</strong></td>
+      <td class="team-name">${data.lap}</td>
+      <td class="team-name">${gap}</td>
+    </tr>`;
+  }).join('');
+}
+
+function anDrawPitstops() {
+  const canvas = document.getElementById('an-pitstop-canvas');
+  if (!canvas) return;
+  const ctx = canvas.getContext('2d');
+  const W = canvas.width, H = canvas.height;
+  ctx.fillStyle = '#13131a'; ctx.fillRect(0,0,W,H);
+  if (!_anTotalLaps) return;
+  if (!_anPitstops.length) {
+    ctx.fillStyle='#52526a'; ctx.font='13px Barlow,sans-serif'; ctx.textAlign='center';
+    ctx.fillText('No pit stop data available for this race', W/2, H/2); return;
+  }
+  const drivers = Object.keys(_anDrivers);
+  const PAD = {t:6, r:16, b:28, l:46};
+  const rowH = Math.max(10, Math.min(22, (H-PAD.t-PAD.b)/drivers.length));
+  const pw = W-PAD.l-PAD.r;
+  const xScale = pw/_anTotalLaps;
+  const stopMap = {};
+  _anPitstops.forEach(p => {
+    if (!stopMap[p.driverId]) stopMap[p.driverId] = [];
+    stopMap[p.driverId].push({lap:parseInt(p.lap), dur:parseFloat(p.duration)});
+  });
+  drivers.forEach((id, i) => {
+    const d = _anDrivers[id];
+    const y = PAD.t + i*rowH;
+    const cy = y + rowH/2;
+    ctx.fillStyle='#52526a'; ctx.font='9px JetBrains Mono,monospace'; ctx.textAlign='right';
+    ctx.fillText(d.code, PAD.l-4, cy+3);
+    ctx.strokeStyle='rgba(255,255,255,0.04)'; ctx.lineWidth=1;
+    ctx.beginPath(); ctx.moveTo(PAD.l,cy); ctx.lineTo(PAD.l+pw,cy); ctx.stroke();
+    (stopMap[id]||[]).forEach(s => {
+      const x = PAD.l + (s.lap-0.5)*xScale;
+      ctx.strokeStyle = d.color; ctx.lineWidth=2;
+      ctx.beginPath(); ctx.moveTo(x, y+2); ctx.lineTo(x, y+rowH-2); ctx.stroke();
+      if (rowH >= 16) {
+        ctx.fillStyle='#9898b0'; ctx.font='8px JetBrains Mono,monospace'; ctx.textAlign='center';
+        ctx.fillText(s.dur.toFixed(1), x, y+rowH-1);
+      }
+    });
+  });
+  ctx.fillStyle='#52526a'; ctx.font='10px JetBrains Mono,monospace'; ctx.textAlign='center';
+  const step = Math.ceil(_anTotalLaps/10);
+  for (let l=0; l<=_anTotalLaps; l+=step)
+    ctx.fillText(l, PAD.l+l*xScale, H-6);
+}
+
+function anDrawTyres() {
+  const canvas = document.getElementById('an-tyre-canvas');
+  if (!canvas) return;
+  const ctx = canvas.getContext('2d');
+  const W = canvas.width, H = canvas.height;
+  ctx.fillStyle = '#13131a'; ctx.fillRect(0,0,W,H);
+  if (!_anTotalLaps) return;
+  const drivers = Object.keys(_anDrivers);
+  const PAD = {t:6, r:16, b:28, l:46};
+  const rowH = Math.max(10, Math.min(22, (H-PAD.t-PAD.b)/drivers.length));
+  const pw = W-PAD.l-PAD.r;
+  const xScale = pw/_anTotalLaps;
+  const stopMap = {};
+  _anPitstops.forEach(p => {
+    if (!stopMap[p.driverId]) stopMap[p.driverId] = [];
+    stopMap[p.driverId].push(parseInt(p.lap));
+  });
+  const stintPalette = ['#3a3a52','#52526a','#3a3a52','#52526a','#3a3a52'];
+  drivers.forEach((id, i) => {
+    const d = _anDrivers[id];
+    const y = PAD.t + i*rowH;
+    ctx.fillStyle='#52526a'; ctx.font='9px JetBrains Mono,monospace'; ctx.textAlign='right';
+    ctx.fillText(d.code, PAD.l-4, y+rowH-3);
+    const stops = [0,...(stopMap[id]||[]).sort((a,b)=>a-b),_anTotalLaps];
+    stops.forEach((lap,si) => {
+      if (si===stops.length-1) return;
+      const x = PAD.l + lap*xScale;
+      const w = (stops[si+1]-lap)*xScale - 1;
+      if (w <= 0) return;
+      // Bar with driver color accent on left edge
+      ctx.fillStyle = stintPalette[si%stintPalette.length];
+      ctx.fillRect(x, y+1, w, rowH-3);
+      ctx.fillStyle = d.color;
+      ctx.fillRect(x, y+1, 2, rowH-3);
+      if (w > 24) {
+        ctx.fillStyle='#9898b0'; ctx.font='8px JetBrains Mono,monospace'; ctx.textAlign='center';
+        ctx.fillText(stops[si+1]-lap, x+w/2, y+rowH-3);
+      }
+    });
+  });
+  ctx.fillStyle='#52526a'; ctx.font='10px JetBrains Mono,monospace'; ctx.textAlign='center';
+  const step = Math.ceil(_anTotalLaps/10);
+  for (let l=0; l<=_anTotalLaps; l+=step)
+    ctx.fillText(l, PAD.l+l*xScale, H-6);
 }
 </script>
 </body>
