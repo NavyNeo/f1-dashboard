@@ -500,6 +500,13 @@
   .an-selects select { background: var(--s2); border: 1px solid var(--border); border-radius: 4px; color: var(--text); padding: 4px 8px; font-size: 12px; }
   .an-canvas { display: block; width: 100%; border-radius: 4px; background: #13131a; cursor: crosshair; }
   .an-hint { font-size: 11px; color: var(--t3); margin-top: 6px; font-family: 'JetBrains Mono', monospace; }
+  .an-key { display: flex; flex-wrap: wrap; gap: 16px; margin-top: 10px; padding: 10px 14px; background: var(--s2); border-radius: 6px; border: 1px solid var(--border); }
+  .an-key-item { display: flex; align-items: center; gap: 7px; font-size: 11px; color: var(--t2); font-family: 'Barlow', sans-serif; }
+  .an-key-swatch { width: 28px; height: 3px; border-radius: 2px; flex-shrink: 0; }
+  .an-key-dot { width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0; border: 2px solid #fff; }
+  .an-key-tri { width: 0; height: 0; border-left: 5px solid transparent; border-right: 5px solid transparent; border-bottom: 8px solid #9898b0; flex-shrink: 0; }
+  .an-key-bar { width: 14px; height: 10px; border-radius: 2px; flex-shrink: 0; }
+  .an-key-div { width: 1px; height: 22px; background: var(--border); align-self: center; }
 </style>
 </head>
 <body>
@@ -810,7 +817,18 @@
         </div>
       </div>
       <canvas id="an-compare-canvas" class="an-canvas" width="1600" height="480"></canvas>
-      <div class="an-hint">Hover to inspect any lap · Pit-stop laps shown as hollow circles · Lower gap = D1 faster</div>
+      <div class="an-key">
+        <div class="an-key-item"><div class="an-key-swatch" id="an-key-d1-swatch" style="background:#e10600"></div><span><strong id="an-key-d1-label">Driver 1</strong> — lap time line</span></div>
+        <div class="an-key-item"><div class="an-key-swatch" id="an-key-d2-swatch" style="background:#0067ff"></div><span><strong id="an-key-d2-label">Driver 2</strong> — lap time line</span></div>
+        <div class="an-key-div"></div>
+        <div class="an-key-item"><div class="an-key-dot" id="an-key-dot1" style="background:#e10600"></div><span>Fastest lap marker (filled dot)</span></div>
+        <div class="an-key-item"><div class="an-key-tri"></div><span>Pit stop lap (triangle on x-axis, line breaks here)</span></div>
+        <div class="an-key-div"></div>
+        <div class="an-key-item"><div class="an-key-bar" style="background:#e10600aa"></div><span>Gap bar — <strong>Driver 1 faster</strong> (bar above zero line)</span></div>
+        <div class="an-key-item"><div class="an-key-bar" style="background:#0067ffaa"></div><span>Gap bar — <strong>Driver 2 faster</strong> (bar below zero line)</span></div>
+        <div class="an-key-div"></div>
+        <div class="an-key-item" style="color:var(--t3)">Y-axis = lap time · X-axis = lap number · Outlier laps (crashes, VSC) clipped from view</div>
+      </div>
     </div>
 
     <!-- Pit Stop Timeline -->
