@@ -920,11 +920,11 @@ async function prefetchRecentRaceData(onProgress) {
       .forEach(r => allRaces.push({ year: String(year), round: r.round, name: r.name }));
   }
 
-  const total = allRaces.length * 2; // results + laps
+  const total = allRaces.length;
   let completed = 0;
   const tick = () => { completed++; if (onProgress) onProgress(total > 0 ? completed / total : 1); };
 
-  // Pre-fetch results (5 at a time)
+  // Pre-fetch results only (3 at a time) — laps load on-demand and are cached after first load
   await _pool(allRaces.map(r => async () => {
     const key = `${r.year}/${r.round}`;
     if (!_resultsCache[key]) {
@@ -932,26 +932,6 @@ async function prefetchRecentRaceData(onProgress) {
         const d = await fetchJSON(`${API}/${r.year}/${r.round}/results.json`);
         const race = d.MRData?.RaceTable?.Races?.[0];
         if (race) _resultsCache[key] = race;
-      } catch(e) {}
-    }
-    tick();
-  }));
-
-  // Pre-fetch laps (3 at a time)
-  await _pool(allRaces.map(r => async () => {
-    const key = `${r.year}/${r.round}`;
-    if (!_lapsCache[key]) {
-      try {
-        let laps = [], offset = 0, lapTotal = Infinity;
-        while (laps.length < lapTotal) {
-          const d = await fetchJSON(`${API}/${r.year}/${r.round}/laps.json?limit=100&offset=${offset}`);
-          if (!d.MRData?.RaceTable?.Races?.[0]?.Laps) break;
-          lapTotal = parseInt(d.MRData.total);
-          laps = laps.concat(d.MRData.RaceTable.Races[0].Laps);
-          offset += 100;
-          if (offset >= lapTotal) break;
-        }
-        if (laps.length) _lapsCache[key] = laps;
       } catch(e) {}
     }
     tick();
