@@ -2738,6 +2738,22 @@ function anDrawComparison() {
   if (!d1id || !d2id) return;
   const d1 = _anDrivers[d1id], d2 = _anDrivers[d2id];
 
+  // Update key labels/colors to match current selection
+  const _ks = (id, color, label) => {
+    const s = document.getElementById(id); if (s) s.style.background = color;
+    const l = document.getElementById(label); if (l) l.textContent = color === '#e10600' ? 'Driver 1' : 'Driver 2';
+  };
+  if (d1) { document.getElementById('an-key-d1-swatch').style.background = d1.color; document.getElementById('an-key-d1-label').textContent = d1.code; document.getElementById('an-key-dot1').style.background = d1.color; }
+  if (d2) { document.getElementById('an-key-d2-swatch').style.background = d2.color; document.getElementById('an-key-d2-label').textContent = d2.code; }
+  // Update gap bar colors in key
+  const gapBars = document.querySelectorAll('.an-key-bar');
+  if (gapBars[0] && d1) gapBars[0].style.background = d1.color + 'aa';
+  if (gapBars[1] && d2) gapBars[1].style.background = d2.color + 'aa';
+  // Update gap bar descriptions
+  const gapDescs = document.querySelectorAll('.an-key-item strong');
+  if (gapDescs[0] && d1) gapDescs[0].textContent = d1.code + ' faster';
+  if (gapDescs[1] && d2) gapDescs[1].textContent = d2.code + ' faster';
+
   ctx.fillStyle = '#13131a'; ctx.fillRect(0, 0, W, H);
 
   // Split canvas: main chart top, gap chart bottom
