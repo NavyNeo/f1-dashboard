@@ -1017,12 +1017,12 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
   });
 
-  // Populate h2h-year with last 10 years
+  // Populate h2h-year with last 10 years, then load drivers for default year
   const h2hYearSel = document.getElementById('h2h-year');
   if (h2hYearSel) {
-    for (let y = CURRENT_YEAR; y >= CURRENT_YEAR - 9; y--) {
+    for (let y = CURRENT_YEAR; y >= CURRENT_YEAR - 9; y--)
       h2hYearSel.add(new Option(y, y));
-    }
+    loadH2HDrivers();
   }
 
   // Clock starts immediately
@@ -3730,6 +3730,22 @@ function _anDegMousemove(e) {
 // ══════════════════════════════════════════════════════════════════════════════
 // FEATURE 3: HEAD-TO-HEAD SEASON STATS
 // ══════════════════════════════════════════════════════════════════════════════
+
+async function loadH2HDrivers() {
+  const year = document.getElementById('h2h-year')?.value;
+  if (!year) return;
+  try {
+    const d = await fetchJSON(`${API}/${year}/drivers.json?limit=100`);
+    const drivers = d.MRData?.DriverTable?.Drivers || [];
+    const opts = '<option value="">— select —</option>' +
+      drivers.map(d => {
+        const code = d.code || d.familyName.slice(0,3).toUpperCase();
+        return `<option value="${d.driverId}">${code} — ${d.givenName} ${d.familyName}</option>`;
+      }).join('');
+    document.getElementById('h2h-d1').innerHTML = opts;
+    document.getElementById('h2h-d2').innerHTML = opts;
+  } catch(e) { console.warn('[H2H drivers]', e); }
+}
 
 async function loadH2H() {
   const yearEl = document.getElementById('h2h-year');
