@@ -946,6 +946,24 @@ function _setLoadingProgress(pct) {
   document.getElementById('ls-pct').textContent  = Math.round(pct * 100) + '%';
 }
 
+// Keep tooltip glued to the mouse at all times
+document.addEventListener('mousemove', e => {
+  const tip = document.getElementById('an-float-tip');
+  if (!tip || tip.style.display === 'none') return;
+  const vw = window.innerWidth, vh = window.innerHeight;
+  const tipH = tip.offsetHeight || 80;
+  if (e.clientX > vw / 2) {
+    tip.style.left  = 'auto';
+    tip.style.right = (vw - e.clientX + 16) + 'px';
+  } else {
+    tip.style.right = 'auto';
+    tip.style.left  = (e.clientX + 16) + 'px';
+  }
+  let top = e.clientY - tipH / 2;
+  top = Math.max(8, Math.min(vh - tipH - 8, top));
+  tip.style.top = top + 'px';
+});
+
 document.addEventListener('DOMContentLoaded', async () => {
   // Populate year selects
   const selects = ['sched-year','stand-year','res-year','lap-year','rc2-year','rep-year','an-year'];
@@ -2593,34 +2611,34 @@ let _anCmpHover  = null; // lap index
 let _anPsHover   = null; // {driverId, stopIdx}
 let _anTyHover   = null; // {driverId, stintIdx}
 let _anFlHover   = null; // driver index
+let _anMouseClient = { x: 0, y: 0 }; // last raw mouse position (viewport coords)
 
 // Pre-computed pit stop lookup
 let _anPitLapSet = {}; // driverId -> Set of pit lap numbers
 
 // ── Tooltip helper ─────────────────────────────────────────────
+// Uses a fixed-position HTML overlay — never clipped by canvas boundaries.
+// mx/my/W/H are kept for signature compatibility but positioning uses the
+// last raw mouse clientX/clientY stored in _anMouseClient.
 function _anTip(ctx, mx, my, lines, W, H) {
-  const PX = 10, LH = 18;
-  ctx.font = '11px JetBrains Mono,monospace';
-  const tw = Math.max(...lines.map(l => ctx.measureText(l.text).width));
-  const bw = tw + PX * 2 + 2, bh = lines.length * LH + PX * 1.2;
-  let tx = mx + 14, ty = my - bh / 2;
-  if (tx + bw > W - 4) tx = mx - bw - 14;
-  if (tx < 4) tx = 4;
-  ty = Math.max(4, Math.min(H - bh - 4, ty));
-  if (bh > H - 8) ty = 4;
-  ctx.fillStyle = 'rgba(14,14,22,0.96)';
-  ctx.strokeStyle = 'rgba(255,255,255,0.14)';
-  ctx.lineWidth = 1;
-  ctx.beginPath();
-  if (ctx.roundRect) ctx.roundRect(tx, ty, bw, bh, 5);
-  else ctx.rect(tx, ty, bw, bh);
-  ctx.fill(); ctx.stroke();
-  lines.forEach((l, i) => {
-    ctx.fillStyle = l.color || '#ccc';
-    ctx.font = l.bold ? 'bold 11px JetBrains Mono,monospace' : '11px JetBrains Mono,monospace';
-    ctx.textAlign = 'left';
-    ctx.fillText(l.text, tx + PX, ty + PX + LH * (i + 0.72));
-  });
+  const tip = document.getElementById('an-float-tip');
+  if (!tip) return;
+  tip.innerHTML = lines.map(l =>
+    `<span style="display:block;color:${l.color||'#ccc'};${l.bold?'font-weight:700':''}">` +
+    l.text.replace(/&/g,'&amp;').replace(/</g,'&lt;') + '</span>'
+  ).join('');
+  // Initial position near cursor; document mousemove keeps it updated
+  const cx = _anMouseClient.x, cy = _anMouseClient.y;
+  const vw = window.innerWidth;
+  if (cx > vw / 2) { tip.style.left = 'auto'; tip.style.right = (vw - cx + 16) + 'px'; }
+  else              { tip.style.right = 'auto'; tip.style.left = (cx + 16) + 'px'; }
+  tip.style.top = (cy - 30) + 'px';
+  tip.style.display = 'block';
+}
+
+function _anHideTip() {
+  const tip = document.getElementById('an-float-tip');
+  if (tip) tip.style.display = 'none';
 }
 
 function _fmtLapTime(secs) {
@@ -2710,10 +2728,10 @@ async function loadAnalysis() {
     anDrawFastestLaps();
 
     // Wire up hover listeners
-    _anWireHover('an-compare-canvas', _anCmpMousemove, () => { _anCmpHover = null; anDrawComparison(); });
-    _anWireHover('an-pitstop-canvas', _anPsMousemove,  () => { _anPsHover  = null; anDrawPitstops(); });
-    _anWireHover('an-tyre-canvas',    _anTyMousemove,  () => { _anTyHover  = null; anDrawTyres(); });
-    _anWireHover('an-fastlap-canvas', _anFlMousemove,  () => { _anFlHover  = null; anDrawFastestLaps(); });
+    _anWireHover('an-compare-canvas', _anCmpMousemove, () => { _anCmpHover = null; anDrawComparison(); _anHideTip(); });
+    _anWireHover('an-pitstop-canvas', _anPsMousemove,  () => { _anPsHover  = null; anDrawPitstops();   _anHideTip(); });
+    _anWireHover('an-tyre-canvas',    _anTyMousemove,  () => { _anTyHover  = null; anDrawTyres();      _anHideTip(); });
+    _anWireHover('an-fastlap-canvas', _anFlMousemove,  () => { _anFlHover  = null; anDrawFastestLaps();_anHideTip(); });
 
   } catch(e) {
     console.warn('[Analysis]', e);
@@ -3001,6 +3019,7 @@ function anDrawComparison() {
 }
 
 function _anCmpMousemove(e) {
+  _anMouseClient = { x: e.clientX, y: e.clientY };
   const canvas = document.getElementById('an-compare-canvas');
   if (!canvas || !_anLaps.length) return;
   const { x } = _anCanvasXY(canvas, e);
@@ -3104,6 +3123,7 @@ function anDrawPitstops() {
 }
 
 function _anPsMousemove(e) {
+  _anMouseClient = { x: e.clientX, y: e.clientY };
   const canvas = document.getElementById('an-pitstop-canvas');
   if (!canvas || !_anTotalLaps) return;
   const { x, y } = _anCanvasXY(canvas, e);
@@ -3140,13 +3160,15 @@ function anDrawTyres() {
   const canvas = document.getElementById('an-tyre-canvas');
   if (!canvas) return;
   const ctx = canvas.getContext('2d');
-  const W = canvas.width, H = canvas.height;
-  ctx.fillStyle = '#13131a'; ctx.fillRect(0, 0, W, H);
-  if (!_anTotalLaps) return;
+  const W = canvas.width;
+  if (!_anTotalLaps) { ctx.fillStyle = '#13131a'; ctx.fillRect(0, 0, W, canvas.height); return; }
 
   const drivers = Object.keys(_anDrivers);
-  const PAD = { t: 8, r: 20, b: 28, l: 50 };
-  const rowH = Math.max(18, Math.min(28, (H - PAD.t - PAD.b) / drivers.length));
+  const PAD = { t: 8, r: 20, b: 32, l: 50 };
+  const rowH = 22;
+  const H = PAD.t + drivers.length * rowH + PAD.b;
+  canvas.height = H;
+  ctx.fillStyle = '#13131a'; ctx.fillRect(0, 0, W, H);
   const pw = W - PAD.l - PAD.r;
   const xScale = pw / _anTotalLaps;
 
@@ -3219,6 +3241,7 @@ function anDrawTyres() {
 }
 
 function _anTyMousemove(e) {
+  _anMouseClient = { x: e.clientX, y: e.clientY };
   const canvas = document.getElementById('an-tyre-canvas');
   if (!canvas || !_anTotalLaps) return;
   const { x, y } = _anCanvasXY(canvas, e);
@@ -3337,6 +3360,7 @@ function anDrawFastestLaps() {
 }
 
 function _anFlMousemove(e) {
+  _anMouseClient = { x: e.clientX, y: e.clientY };
   const canvas = document.getElementById('an-fastlap-canvas');
   if (!canvas) return;
   const { y } = _anCanvasXY(canvas, e);
