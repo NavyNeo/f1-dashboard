@@ -511,6 +511,15 @@
 </head>
 <body>
 
+<!-- Floating HTML tooltip — shared by all analysis charts -->
+<div id="an-float-tip" style="
+  position:fixed; z-index:9999; pointer-events:none; display:none;
+  background:rgba(14,14,22,0.97); border:1px solid rgba(255,255,255,0.14);
+  border-radius:6px; padding:8px 12px; font-family:'JetBrains Mono',monospace;
+  font-size:11px; line-height:18px; white-space:nowrap;
+  box-shadow:0 4px 16px rgba(0,0,0,0.5);
+"></div>
+
 <div id="loading-screen">
   <div class="ls-inner">
     <img class="ls-logo" src="https://cdn-8.motorsport.com/images/amp/68ey3q40/s3/f1-abu-dhabi-gp-2017-f1-logo-6614911.jpg" alt="F1">
