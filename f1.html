@@ -780,6 +780,60 @@
   </div>
 </div>
 
+<!-- ══════════════════════════════════════════════════════════ ANALYSIS -->
+<div id="tab-analysis" class="tab">
+  <div class="section-title">Data & Analysis</div>
+  <div class="section-sub">Lap times, strategies, pit stops and fastest lap breakdowns — historical races</div>
+  <div class="controls">
+    <label>Season</label>
+    <select id="an-year" onchange="populateRaces('an')"></select>
+    <label>Race</label>
+    <select id="an-race" onchange="loadAnalysis()" style="min-width:200px"><option value="">— select race —</option></select>
+  </div>
+  <div class="loading" id="an-loading"><div class="spinner"></div>Loading analysis…</div>
+  <div class="an-grid">
+
+    <!-- Driver Comparison -->
+    <div class="an-card">
+      <div class="card-title">Driver Comparison</div>
+      <div class="an-selects">
+        <select id="an-d1" onchange="anDrawComparison()"><option value="">Driver 1</option></select>
+        <span style="color:var(--t3);font-size:12px">vs</span>
+        <select id="an-d2" onchange="anDrawComparison()"><option value="">Driver 2</option></select>
+        <select id="an-compare-mode" onchange="anDrawComparison()">
+          <option value="laptime">Lap Times</option>
+          <option value="position">Position</option>
+        </select>
+      </div>
+      <canvas id="an-compare-canvas" width="800" height="280"></canvas>
+    </div>
+
+    <!-- Fastest Lap Leaderboard -->
+    <div class="an-card">
+      <div class="card-title">Fastest Laps</div>
+      <div class="table-wrap" style="max-height:330px;overflow-y:auto">
+        <table>
+          <thead><tr><th>Rank</th><th>Driver</th><th>Team</th><th>Time</th><th>Lap</th><th>Gap</th></tr></thead>
+          <tbody id="an-fastlap-body"><tr><td colspan="6" class="empty">—</td></tr></tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- Pit Stop Timeline -->
+    <div class="an-card">
+      <div class="card-title">Pit Stop Timeline</div>
+      <canvas id="an-pitstop-canvas" width="800" height="320"></canvas>
+    </div>
+
+    <!-- Tyre Strategy -->
+    <div class="an-card">
+      <div class="card-title">Tyre Strategy</div>
+      <canvas id="an-tyre-canvas" width="800" height="320"></canvas>
+    </div>
+
+  </div>
+</div>
+
 <script src="https://cdn.jsdelivr.net/npm/@microsoft/signalr@8.0.0/dist/browser/signalr.min.js"></script>
 <script>
 // ═══════════════════════════════════════════════════════════════
