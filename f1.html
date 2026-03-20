@@ -922,7 +922,7 @@ async function prefetchRecentRaceData(onProgress) {
 
   const total = allRaces.length * 2; // results + laps
   let completed = 0;
-  const tick = (msg) => { completed++; if (onProgress) onProgress(completed / total, msg); };
+  const tick = () => { completed++; if (onProgress) onProgress(total > 0 ? completed / total : 1); };
 
   // Pre-fetch results (5 at a time)
   await _pool(allRaces.map(r => async () => {
@@ -934,7 +934,7 @@ async function prefetchRecentRaceData(onProgress) {
         if (race) _resultsCache[key] = race;
       } catch(e) {}
     }
-    tick(`${r.year} · ${r.name} — results`);
+    tick();
   }));
 
   // Pre-fetch laps (3 at a time)
@@ -954,7 +954,7 @@ async function prefetchRecentRaceData(onProgress) {
         if (laps.length) _lapsCache[key] = laps;
       } catch(e) {}
     }
-    tick(`${r.year} · ${r.name} — laps`);
+    tick();
   }), 3);
 }
 
