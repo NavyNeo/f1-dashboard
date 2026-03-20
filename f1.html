@@ -893,10 +893,10 @@
       <div class="card-title">
         <span>Head-to-Head — Full Season</span>
         <div class="an-selects" style="margin:0">
-          <select id="h2h-year"></select>
-          <select id="h2h-d1"><option value="">Driver A</option></select>
+          <select id="h2h-year" onchange="loadH2HDrivers()"></select>
+          <select id="h2h-d1"><option value="">— Driver A —</option></select>
           <span style="color:var(--t3);font-size:12px">vs</span>
-          <select id="h2h-d2"><option value="">Driver B</option></select>
+          <select id="h2h-d2"><option value="">— Driver B —</option></select>
           <button class="an-btn" onclick="loadH2H()">Load Season</button>
         </div>
       </div>
@@ -1016,6 +1016,14 @@ document.addEventListener('DOMContentLoaded', async () => {
       sel.add(new Option(y, y));
     }
   });
+
+  // Populate h2h-year with last 10 years
+  const h2hYearSel = document.getElementById('h2h-year');
+  if (h2hYearSel) {
+    for (let y = CURRENT_YEAR; y >= CURRENT_YEAR - 9; y--) {
+      h2hYearSel.add(new Option(y, y));
+    }
+  }
 
   // Clock starts immediately
   updateClock();
