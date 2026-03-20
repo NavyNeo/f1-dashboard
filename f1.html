@@ -2738,27 +2738,28 @@ function anDrawComparison() {
   if (!d1id || !d2id) return;
   const d1 = _anDrivers[d1id], d2 = _anDrivers[d2id];
 
-  // Update key labels/colors to match current selection
-  const _ks = (id, color, label) => {
-    const s = document.getElementById(id); if (s) s.style.background = color;
-    const l = document.getElementById(label); if (l) l.textContent = color === '#e10600' ? 'Driver 1' : 'Driver 2';
-  };
-  if (d1) { document.getElementById('an-key-d1-swatch').style.background = d1.color; document.getElementById('an-key-d1-label').textContent = d1.code; document.getElementById('an-key-dot1').style.background = d1.color; }
-  if (d2) { document.getElementById('an-key-d2-swatch').style.background = d2.color; document.getElementById('an-key-d2-label').textContent = d2.code; }
-  // Update gap bar colors in key
+  // Update HTML key
+  if (d1) {
+    const sw = document.getElementById('an-key-d1-swatch'); if (sw) sw.style.background = d1.color;
+    const lb = document.getElementById('an-key-d1-label'); if (lb) lb.textContent = d1.code;
+    const dt = document.getElementById('an-key-dot1'); if (dt) dt.style.background = d1.color;
+  }
+  if (d2) {
+    const sw = document.getElementById('an-key-d2-swatch'); if (sw) sw.style.background = d2.color;
+    const lb = document.getElementById('an-key-d2-label'); if (lb) lb.textContent = d2.code;
+  }
   const gapBars = document.querySelectorAll('.an-key-bar');
   if (gapBars[0] && d1) gapBars[0].style.background = d1.color + 'aa';
   if (gapBars[1] && d2) gapBars[1].style.background = d2.color + 'aa';
-  // Update gap bar descriptions
   const gapDescs = document.querySelectorAll('.an-key-item strong');
   if (gapDescs[0] && d1) gapDescs[0].textContent = d1.code + ' faster';
   if (gapDescs[1] && d2) gapDescs[1].textContent = d2.code + ' faster';
 
   ctx.fillStyle = '#13131a'; ctx.fillRect(0, 0, W, H);
 
-  // Split canvas: main chart top, gap chart bottom
-  const GAP_H = 100;
-  const PAD = { t: 30, r: 20, b: 28, l: 72 };
+  // Layout
+  const PAD = { t: 28, r: 24, b: 24, l: 72 };
+  const GAP_H = 88;
   const mainH = H - GAP_H - PAD.t - PAD.b;
   const pw = W - PAD.l - PAD.r;
   const nLaps = _anLaps.length;
@@ -2782,14 +2783,14 @@ function anDrawComparison() {
     }
   });
 
-  // Compute scale (filter out pit-stop outliers for lap time mode)
+  // Scale (clip outliers for lap time)
   const allVals = [...d1Vals, ...d2Vals].filter(v => v !== null);
   if (!allVals.length) return;
   let minV, maxV;
   if (mode === 'laptime') {
     const sorted = [...allVals].sort((a,b) => a-b);
-    minV = sorted[Math.floor(sorted.length * 0.03)] * 0.9985;
-    maxV = sorted[Math.floor(sorted.length * 0.97)] * 1.0015;
+    minV = sorted[Math.floor(sorted.length * 0.03)] * 0.999;
+    maxV = sorted[Math.floor(sorted.length * 0.97)] * 1.001;
   } else {
     minV = 1; maxV = Object.keys(_anDrivers).length;
   }
@@ -2797,151 +2798,193 @@ function anDrawComparison() {
   const xOf = i => PAD.l + (i / (nLaps - 1 || 1)) * pw;
   const yOf = v => PAD.t + (maxV - v) / (maxV - minV) * mainH;
 
-  // Grid lines
-  ctx.strokeStyle = 'rgba(255,255,255,0.06)'; ctx.lineWidth = 1;
+  // ── Horizontal grid lines ──
   for (let g = 0; g <= 5; g++) {
-    const y = PAD.t + (g/5) * mainH;
+    const y = PAD.t + (g / 5) * mainH;
+    ctx.strokeStyle = g === 0 || g === 5 ? 'rgba(255,255,255,0.1)' : 'rgba(255,255,255,0.05)';
+    ctx.lineWidth = 1; ctx.setLineDash([]);
     ctx.beginPath(); ctx.moveTo(PAD.l, y); ctx.lineTo(PAD.l + pw, y); ctx.stroke();
-    const val = maxV - (g/5) * (maxV - minV);
+    const val = maxV - (g / 5) * (maxV - minV);
     ctx.fillStyle = '#52526a'; ctx.font = '10px JetBrains Mono,monospace'; ctx.textAlign = 'right';
-    if (mode === 'laptime') ctx.fillText(_fmtLapTime(val), PAD.l - 5, y + 4);
-    else ctx.fillText(`P${Math.round(val)}`, PAD.l - 5, y + 4);
+    if (mode === 'laptime') ctx.fillText(_fmtLapTime(val), PAD.l - 6, y + 4);
+    else ctx.fillText(`P${Math.round(val)}`, PAD.l - 6, y + 4);
   }
 
-  // Draw a line for one driver, skipping pit laps (drawn as hollow circles)
+  // ── Vertical grid lines every ~10 laps ──
+  const vStep = nLaps <= 30 ? 5 : nLaps <= 60 ? 10 : 15;
+  for (let l = vStep; l < nLaps; l += vStep) {
+    const x = xOf(l - 1);
+    ctx.strokeStyle = 'rgba(255,255,255,0.04)'; ctx.lineWidth = 1; ctx.setLineDash([]);
+    ctx.beginPath(); ctx.moveTo(x, PAD.t); ctx.lineTo(x, PAD.t + mainH); ctx.stroke();
+  }
+
+  // ── Draw a driver's line — continuous with dashed bridges over gaps ──
   const drawDriverLine = (vals, color, driverId) => {
     const pitSet = _anPitLapSet[driverId] || new Set();
-    ctx.strokeStyle = color; ctx.lineWidth = 2; ctx.lineJoin = 'round';
-    let started = false;
-    ctx.beginPath();
-    vals.forEach((v, i) => {
-      const lapNum = i + 1;
-      const isPit = pitSet.has(lapNum);
-      if (v === null || v < minV || v > maxV || isPit) { started = false; return; }
-      const x = xOf(i), y = yOf(v);
-      if (!started) { ctx.moveTo(x, y); started = true; } else ctx.lineTo(x, y);
-    });
-    ctx.stroke();
-    // Draw pit lap circles
-    vals.forEach((v, i) => {
-      const lapNum = i + 1;
-      if (!pitSet.has(lapNum)) return;
-      const x = xOf(i);
-      // Draw a small triangle at bottom of main chart area to mark pit lap
-      ctx.fillStyle = color + '99';
+    const pts = vals.map((v, i) => ({
+      x: xOf(i),
+      y: (v !== null && v >= minV && v <= maxV) ? yOf(v) : null,
+      isPit: pitSet.has(i + 1),
+    }));
+
+    // Solid line segments (consecutive valid points)
+    ctx.strokeStyle = color; ctx.lineWidth = 2.5; ctx.lineJoin = 'round'; ctx.lineCap = 'round';
+    ctx.setLineDash([]);
+    let seg = [];
+    const flushSeg = () => {
+      if (seg.length < 2) { seg = []; return; }
       ctx.beginPath();
-      ctx.moveTo(x - 5, PAD.t + mainH + 6);
-      ctx.lineTo(x + 5, PAD.t + mainH + 6);
-      ctx.lineTo(x, PAD.t + mainH + 1);
+      seg.forEach((p, j) => j === 0 ? ctx.moveTo(p.x, p.y) : ctx.lineTo(p.x, p.y));
+      ctx.stroke(); seg = [];
+    };
+    pts.forEach(pt => { if (pt.y !== null) seg.push(pt); else flushSeg(); });
+    flushSeg();
+
+    // Dashed bridges over null/out-of-range laps
+    ctx.setLineDash([3, 6]);
+    ctx.strokeStyle = color + '55'; ctx.lineWidth = 1.5;
+    let lastValid = null, inGap = false;
+    pts.forEach(pt => {
+      if (pt.y !== null) {
+        if (inGap && lastValid) {
+          ctx.beginPath(); ctx.moveTo(lastValid.x, lastValid.y); ctx.lineTo(pt.x, pt.y); ctx.stroke();
+        }
+        lastValid = pt; inGap = false;
+      } else { inGap = true; }
+    });
+    ctx.setLineDash([]);
+
+    // Pit stop markers: triangle at x-axis + hollow ring on line
+    pts.forEach(pt => {
+      if (!pt.isPit) return;
+      // Triangle below main chart
+      ctx.fillStyle = color + 'cc';
+      ctx.beginPath();
+      ctx.moveTo(pt.x - 5, PAD.t + mainH + 8);
+      ctx.lineTo(pt.x + 5, PAD.t + mainH + 8);
+      ctx.lineTo(pt.x, PAD.t + mainH + 2);
       ctx.closePath(); ctx.fill();
+      // Hollow ring on line if in range
+      if (pt.y !== null) {
+        ctx.strokeStyle = color; ctx.lineWidth = 2;
+        ctx.fillStyle = '#13131a';
+        ctx.beginPath(); ctx.arc(pt.x, pt.y, 4, 0, Math.PI*2);
+        ctx.fill(); ctx.stroke();
+      }
     });
   };
 
   drawDriverLine(d1Vals, d1?.color || '#e10600', d1id);
   drawDriverLine(d2Vals, d2?.color || '#0067ff', d2id);
 
-  // Fastest lap markers
-  const findFastest = (vals) => {
-    let best = Infinity, bestIdx = -1;
-    vals.forEach((v, i) => { if (v !== null && v < best) { best = v; bestIdx = i; } });
-    return bestIdx;
-  };
-  [[d1Vals, d1?.color||'#e10600'],[d2Vals, d2?.color||'#0067ff']].forEach(([vals, col]) => {
-    if (mode !== 'laptime') return;
-    const fi = findFastest(vals);
-    if (fi < 0) return;
-    const v = vals[fi];
-    if (v < minV || v > maxV) return;
-    const x = xOf(fi), y = yOf(v);
-    ctx.fillStyle = col;
-    ctx.beginPath(); ctx.arc(x, y, 5, 0, Math.PI*2); ctx.fill();
-    ctx.fillStyle = '#fff';
-    ctx.beginPath(); ctx.arc(x, y, 2, 0, Math.PI*2); ctx.fill();
+  // ── Fastest lap markers ──
+  if (mode === 'laptime') {
+    [[d1Vals, d1?.color||'#e10600'], [d2Vals, d2?.color||'#0067ff']].forEach(([vals, col]) => {
+      let best = Infinity, bestIdx = -1;
+      vals.forEach((v, i) => { if (v !== null && v < best) { best = v; bestIdx = i; } });
+      if (bestIdx < 0) return;
+      const v = vals[bestIdx];
+      if (v < minV || v > maxV) return;
+      const x = xOf(bestIdx), y = yOf(v);
+      ctx.fillStyle = col;
+      ctx.beginPath(); ctx.arc(x, y, 6, 0, Math.PI*2); ctx.fill();
+      ctx.fillStyle = '#fff';
+      ctx.beginPath(); ctx.arc(x, y, 2.5, 0, Math.PI*2); ctx.fill();
+    });
+  }
+
+  // ── Driver name badges (top-left and top-right) ──
+  [[d1, 'left'], [d2, 'right']].forEach(([d, align]) => {
+    if (!d) return;
+    const label = `${d.code}  ${d.name}`;
+    ctx.font = 'bold 11px Barlow Condensed,sans-serif';
+    ctx.textAlign = 'left';
+    const tw = ctx.measureText(label).width;
+    const bx = align === 'left' ? PAD.l + 6 : PAD.l + pw - tw - 6;
+    ctx.fillStyle = d.color + '28';
+    ctx.fillRect(bx - 4, PAD.t + 5, tw + 8, 15);
+    ctx.fillStyle = d.color;
+    ctx.fillText(label, bx, PAD.t + 16);
   });
 
-  // Gap chart
-  const gapY0 = PAD.t + mainH + GAP_H * 0.1 + 18; // top of gap area
-  const gapH  = GAP_H * 0.7;
-  const gapMid = gapY0 + gapH / 2;
+  // ── Gap chart ──
+  const gapTop  = PAD.t + mainH + 18;
+  const gapBot  = H - PAD.b;
+  const gapH2   = gapBot - gapTop;
+  const gapMid  = gapTop + gapH2 / 2;
   const validGaps = gaps.filter(g => g !== null);
-  const maxGap = Math.max(2, Math.max(...validGaps.map(Math.abs))) * 1.1;
 
-  // Gap area separator
-  ctx.strokeStyle = 'rgba(255,255,255,0.08)'; ctx.lineWidth = 1;
-  ctx.beginPath(); ctx.moveTo(PAD.l, gapMid); ctx.lineTo(PAD.l + pw, gapMid); ctx.stroke();
+  if (validGaps.length) {
+    const maxGap = Math.max(0.5, Math.max(...validGaps.map(Math.abs)));
+    const gapScale = (gapH2 / 2) / maxGap;
+    const barW = Math.max(1.5, (pw / nLaps) * 0.65);
 
-  // Gap label
-  ctx.fillStyle = '#52526a'; ctx.font = '9px JetBrains Mono,monospace'; ctx.textAlign = 'right';
-  ctx.fillText('GAP', PAD.l - 5, gapMid + 3);
+    // Gap area background
+    ctx.fillStyle = 'rgba(255,255,255,0.02)';
+    ctx.fillRect(PAD.l, gapTop, pw, gapH2);
 
-  // Draw gap bars
-  gaps.forEach((g, i) => {
-    if (g === null) return;
-    const x = xOf(i);
-    const barH = (g / maxGap) * (gapH / 2);
-    const col = g < 0 ? (d1?.color||'#e10600') : (d2?.color||'#0067ff');
-    ctx.fillStyle = col + 'aa';
-    ctx.fillRect(x - 1, g < 0 ? gapMid + barH : gapMid, 2, Math.abs(barH));
-  });
+    // Midline
+    ctx.strokeStyle = 'rgba(255,255,255,0.12)'; ctx.lineWidth = 1; ctx.setLineDash([]);
+    ctx.beginPath(); ctx.moveTo(PAD.l, gapMid); ctx.lineTo(PAD.l + pw, gapMid); ctx.stroke();
 
-  // Gap axis labels
-  ctx.fillStyle = '#52526a'; ctx.font = '9px JetBrains Mono,monospace'; ctx.textAlign = 'right';
-  ctx.fillText(`+${maxGap.toFixed(1)}s`, PAD.l - 5, gapY0 + 4);
-  ctx.fillText(`-${maxGap.toFixed(1)}s`, PAD.l - 5, gapY0 + gapH + 4);
+    // GAP label + scale
+    ctx.fillStyle = '#52526a'; ctx.font = '9px JetBrains Mono,monospace'; ctx.textAlign = 'right';
+    ctx.fillText('GAP', PAD.l - 6, gapMid + 3);
+    const gLabel = mode === 'laptime' ? `${maxGap.toFixed(1)}s` : `${Math.round(maxGap)}`;
+    ctx.fillText(`+${gLabel}`, PAD.l - 6, gapTop + 8);
+    ctx.fillText(`−${gLabel}`, PAD.l - 6, gapBot - 2);
 
-  // Legend
-  const legendItems = [[d1, d1id], [d2, d2id]];
-  legendItems.forEach(([d, id], li) => {
-    const lx = PAD.l + li * 160;
-    ctx.fillStyle = d?.color || '#aaa';
-    ctx.beginPath(); ctx.arc(lx, 16, 5, 0, Math.PI*2); ctx.fill();
-    ctx.fillStyle = '#ddd'; ctx.font = 'bold 12px Barlow,sans-serif'; ctx.textAlign = 'left';
-    ctx.fillText(d ? `${d.code} — ${d.name}` : id, lx + 10, 20);
-  });
+    // Bars
+    gaps.forEach((g, i) => {
+      if (g === null) return;
+      const x = xOf(i);
+      const bh = Math.min(Math.abs(g) * gapScale, gapH2 / 2);
+      const col = g < 0 ? (d1?.color||'#e10600') : (d2?.color||'#0067ff');
+      ctx.fillStyle = col + 'bb';
+      ctx.fillRect(x - barW/2, g < 0 ? gapMid - bh : gapMid, barW, bh);
+    });
+  }
 
-  // X-axis laps
+  // ── X-axis lap numbers ──
   ctx.fillStyle = '#52526a'; ctx.font = '10px JetBrains Mono,monospace'; ctx.textAlign = 'center';
-  const step = Math.ceil(nLaps / 12);
-  for (let l = 0; l <= nLaps; l += step)
-    ctx.fillText(`L${l}`, xOf(l), H - 6);
+  const xStep = Math.max(1, Math.ceil(nLaps / 14));
+  for (let l = 0; l <= nLaps; l += xStep)
+    ctx.fillText(`${l}`, xOf(Math.min(l, nLaps - 1)), PAD.t + mainH + 14);
+  ctx.textAlign = 'right';
+  ctx.fillText('LAP', PAD.l - 6, PAD.t + mainH + 14);
 
-  // Hover overlay
+  // ── Hover overlay ──
   if (_anCmpHover !== null && _anCmpHover < nLaps) {
     const i = _anCmpHover;
     const x = xOf(i);
-    ctx.strokeStyle = 'rgba(255,255,255,0.25)'; ctx.lineWidth = 1; ctx.setLineDash([4,3]);
-    ctx.beginPath(); ctx.moveTo(x, PAD.t); ctx.lineTo(x, H - 20); ctx.stroke();
+    ctx.strokeStyle = 'rgba(255,255,255,0.2)'; ctx.lineWidth = 1; ctx.setLineDash([4,3]);
+    ctx.beginPath(); ctx.moveTo(x, PAD.t); ctx.lineTo(x, gapBot); ctx.stroke();
     ctx.setLineDash([]);
 
-    // Dots on lines
-    const drawDot = (vals, color) => {
+    [[d1Vals, d1?.color||'#e10600'], [d2Vals, d2?.color||'#0067ff']].forEach(([vals, col]) => {
       const v = vals[i];
       if (v === null || v < minV || v > maxV) return;
-      ctx.fillStyle = color; ctx.beginPath(); ctx.arc(x, yOf(v), 5, 0, Math.PI*2); ctx.fill();
+      ctx.fillStyle = col; ctx.beginPath(); ctx.arc(x, yOf(v), 5, 0, Math.PI*2); ctx.fill();
       ctx.fillStyle = '#13131a'; ctx.beginPath(); ctx.arc(x, yOf(v), 2.5, 0, Math.PI*2); ctx.fill();
-    };
-    drawDot(d1Vals, d1?.color || '#e10600');
-    drawDot(d2Vals, d2?.color || '#0067ff');
+    });
 
-    // Tooltip
     const v1 = d1Vals[i], v2 = d2Vals[i], gap = gaps[i];
-    const lines = [
-      { text: `Lap ${i + 1}`, bold: true, color: '#fff' },
-    ];
+    const pitD1 = (_anPitLapSet[d1id]||new Set()).has(i+1);
+    const pitD2 = (_anPitLapSet[d2id]||new Set()).has(i+1);
+    const lines = [{ text: `Lap ${i + 1}`, bold: true, color: '#fff' }];
     if (mode === 'laptime') {
-      if (v1 !== null) lines.push({ text: `${d1?.code||'D1'}: ${_fmtLapTime(v1)}`, color: d1?.color || '#e10600' });
-      if (v2 !== null) lines.push({ text: `${d2?.code||'D2'}: ${_fmtLapTime(v2)}`, color: d2?.color || '#0067ff' });
+      if (v1 !== null) lines.push({ text: `${d1?.code||'D1'}: ${_fmtLapTime(v1)}${pitD1?' · pit':''}`, color: d1?.color||'#e10600' });
+      if (v2 !== null) lines.push({ text: `${d2?.code||'D2'}: ${_fmtLapTime(v2)}${pitD2?' · pit':''}`, color: d2?.color||'#0067ff' });
       if (gap !== null) {
-        const gapStr = gap < 0 ? `${d1?.code} +${(-gap).toFixed(3)}s` : gap > 0 ? `${d2?.code} +${gap.toFixed(3)}s` : 'Equal';
-        lines.push({ text: `Gap: ${gapStr}`, color: '#ccc' });
+        const faster = gap < 0 ? d1?.code : d2?.code;
+        const col = gap < 0 ? (d1?.color||'#e10600') : (d2?.color||'#0067ff');
+        lines.push({ text: `\u0394 ${faster} +${Math.abs(gap).toFixed(3)}s`, color: col });
       }
     } else {
-      if (v1 !== null) lines.push({ text: `${d1?.code||'D1'}: P${v1}`, color: d1?.color || '#e10600' });
-      if (v2 !== null) lines.push({ text: `${d2?.code||'D2'}: P${v2}`, color: d2?.color || '#0067ff' });
+      if (v1 !== null) lines.push({ text: `${d1?.code||'D1'}: P${v1}`, color: d1?.color||'#e10600' });
+      if (v2 !== null) lines.push({ text: `${d2?.code||'D2'}: P${v2}`, color: d2?.color||'#0067ff' });
     }
-    const pitD1 = (_anPitLapSet[d1id] || new Set()).has(i+1);
-    const pitD2 = (_anPitLapSet[d2id] || new Set()).has(i+1);
-    if (pitD1 || pitD2) lines.push({ text: `⏹ Pit stop lap`, color: '#9898b0' });
+    if (pitD1 || pitD2) lines.push({ text: `pit stop lap`, color: '#9898b0' });
     _anTip(ctx, x, PAD.t + mainH / 2, lines, W, H);
   }
 }
