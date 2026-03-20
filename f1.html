@@ -507,6 +507,13 @@
   .an-key-tri { width: 0; height: 0; border-left: 5px solid transparent; border-right: 5px solid transparent; border-bottom: 8px solid #9898b0; flex-shrink: 0; }
   .an-key-bar { width: 14px; height: 10px; border-radius: 2px; flex-shrink: 0; }
   .an-key-div { width: 1px; height: 22px; background: var(--border); align-self: center; }
+  .an-btn { background: var(--red); color: #fff; border: none; border-radius: 4px; padding: 5px 12px; font-size: 12px; font-family: 'Barlow Condensed', sans-serif; font-weight: 700; letter-spacing: 1px; text-transform: uppercase; cursor: pointer; }
+  .an-btn:hover { opacity: 0.85; }
+  .h2h-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 10px; margin-bottom: 4px; }
+  .h2h-tile { background: var(--s2); border-radius: 6px; padding: 10px 14px; border: 1px solid var(--border); }
+  .h2h-tile-label { font-size: 10px; font-family: 'JetBrains Mono', monospace; color: var(--t3); letter-spacing: 1px; text-transform: uppercase; margin-bottom: 6px; }
+  .h2h-tile-vals { display: flex; align-items: center; gap: 10px; font-size: 18px; font-family: 'Barlow Condensed', sans-serif; font-weight: 700; }
+  .h2h-tile-bar { height: 4px; border-radius: 2px; margin-top: 6px; display: flex; overflow: hidden; }
 </style>
 </head>
 <body>
@@ -836,6 +843,9 @@
         <div class="an-key-item"><div class="an-key-bar" style="background:#e10600aa"></div><span>Gap bar — <strong>Driver 1 faster</strong> (bar above zero line)</span></div>
         <div class="an-key-item"><div class="an-key-bar" style="background:#0067ffaa"></div><span>Gap bar — <strong>Driver 2 faster</strong> (bar below zero line)</span></div>
         <div class="an-key-div"></div>
+        <div class="an-key-item"><div class="an-key-bar" style="background:rgba(255,214,0,0.35)"></div><span>SC / VSC lap — both drivers slow (yellow band)</span></div>
+        <div class="an-key-item"><div class="an-key-bar" style="background:rgba(255,140,0,0.35)"></div><span>Incident lap — one driver slow (orange band)</span></div>
+        <div class="an-key-div"></div>
         <div class="an-key-item" style="color:var(--t3)">Y-axis = lap time · X-axis = lap number · Outlier laps (crashes, VSC) clipped from view</div>
       </div>
     </div>
@@ -862,6 +872,39 @@
       <div class="card-title">Fastest Lap Leaderboard</div>
       <canvas id="an-fastlap-canvas" class="an-canvas" width="1600" height="50"></canvas>
       <div class="an-hint">Hover a bar for details · Purple = fastest overall</div>
+    </div>
+
+    <!-- Tyre Degradation -->
+    <div class="an-card full">
+      <div class="card-title">
+        <span>Tyre Degradation</span>
+        <div class="an-selects" style="margin:0">
+          <select id="deg-d1" onchange="anDrawTyreDeg()"><option value="">Driver 1</option></select>
+          <span style="color:var(--t3);font-size:12px">vs</span>
+          <select id="deg-d2" onchange="anDrawTyreDeg()"><option value="">Driver 2</option></select>
+        </div>
+      </div>
+      <canvas id="an-deg-canvas" class="an-canvas" width="1600" height="320"></canvas>
+      <div class="an-hint">Each line segment = one stint · Slope shows tyre degradation rate</div>
+    </div>
+
+    <!-- Head-to-Head Season -->
+    <div class="an-card full">
+      <div class="card-title">
+        <span>Head-to-Head — Full Season</span>
+        <div class="an-selects" style="margin:0">
+          <select id="h2h-year"></select>
+          <select id="h2h-d1"><option value="">Driver A</option></select>
+          <span style="color:var(--t3);font-size:12px">vs</span>
+          <select id="h2h-d2"><option value="">Driver B</option></select>
+          <button class="an-btn" onclick="loadH2H()">Load Season</button>
+        </div>
+      </div>
+      <div class="loading" id="h2h-loading"><div class="spinner"></div>Loading season data…</div>
+      <div id="h2h-stats" style="display:none">
+        <!-- stats grid populated by JS -->
+      </div>
+      <canvas id="h2h-canvas" class="an-canvas" width="1600" height="200" style="margin-top:12px"></canvas>
     </div>
 
   </div>
@@ -951,7 +994,7 @@ document.addEventListener('mousemove', e => {
   const tip = document.getElementById('an-float-tip');
   if (!tip || tip.style.display === 'none') return;
   const vw = window.innerWidth, vh = window.innerHeight;
-  const tipH = tip.offsetHeight || 80;
+  const tipH = _anTipH;
   if (e.clientX > vw / 2) {
     tip.style.left  = 'auto';
     tip.style.right = (vw - e.clientX + 16) + 'px';
@@ -2612,9 +2655,13 @@ let _anPsHover   = null; // {driverId, stopIdx}
 let _anTyHover   = null; // {driverId, stintIdx}
 let _anFlHover   = null; // driver index
 let _anMouseClient = { x: 0, y: 0 }; // last raw mouse position (viewport coords)
+let _anTipH = 80; // estimated tooltip height, kept in sync by _anTip
 
 // Pre-computed pit stop lookup
 let _anPitLapSet = {}; // driverId -> Set of pit lap numbers
+
+// Hover state for new charts
+let _anDegHover = null; // { driverId, stintIdx, lapIdx }
 
 // ── Tooltip helper ─────────────────────────────────────────────
 // Uses a fixed-position HTML overlay — never clipped by canvas boundaries.
@@ -2627,12 +2674,14 @@ function _anTip(ctx, mx, my, lines, W, H) {
     `<span style="display:block;color:${l.color||'#ccc'};${l.bold?'font-weight:700':''}">` +
     l.text.replace(/&/g,'&amp;').replace(/</g,'&lt;') + '</span>'
   ).join('');
-  // Initial position near cursor; document mousemove keeps it updated
+  _anTipH = lines.length * 20 + 18; // keep global in sync for mousemove clamping
   const cx = _anMouseClient.x, cy = _anMouseClient.y;
-  const vw = window.innerWidth;
+  const vw = window.innerWidth, vh = window.innerHeight;
   if (cx > vw / 2) { tip.style.left = 'auto'; tip.style.right = (vw - cx + 16) + 'px'; }
   else              { tip.style.right = 'auto'; tip.style.left = (cx + 16) + 'px'; }
-  tip.style.top = (cy - 30) + 'px';
+  let top = cy - _anTipH / 2;
+  top = Math.max(8, Math.min(vh - _anTipH - 8, top));
+  tip.style.top = top + 'px';
   tip.style.display = 'block';
 }
 
@@ -2718,20 +2767,42 @@ async function loadAnalysis() {
       document.getElementById('an-d2').value = ids[1];
     }
 
+    // Populate deg dropdowns
+    const degD1 = document.getElementById('deg-d1');
+    const degD2 = document.getElementById('deg-d2');
+    if (degD1) degD1.innerHTML = opts;
+    if (degD2) degD2.innerHTML = opts;
+    if (ids.length >= 2) {
+      if (degD1) degD1.value = ids[0];
+      if (degD2) degD2.value = ids[1];
+    }
+
+    // Populate h2h driver dropdowns from current race drivers
+    const h2hD1 = document.getElementById('h2h-d1');
+    const h2hD2 = document.getElementById('h2h-d2');
+    if (h2hD1) h2hD1.innerHTML = opts;
+    if (h2hD2) h2hD2.innerHTML = opts;
+    if (ids.length >= 2) {
+      if (h2hD1) h2hD1.value = ids[0];
+      if (h2hD2) h2hD2.value = ids[1];
+    }
+
     // Reset hover states
-    _anCmpHover = _anPsHover = _anTyHover = _anFlHover = null;
+    _anCmpHover = _anPsHover = _anTyHover = _anFlHover = _anDegHover = null;
 
     // Draw everything
     anDrawComparison();
     anDrawPitstops();
     anDrawTyres();
     anDrawFastestLaps();
+    anDrawTyreDeg();
 
     // Wire up hover listeners
     _anWireHover('an-compare-canvas', _anCmpMousemove, () => { _anCmpHover = null; anDrawComparison(); _anHideTip(); });
     _anWireHover('an-pitstop-canvas', _anPsMousemove,  () => { _anPsHover  = null; anDrawPitstops();   _anHideTip(); });
     _anWireHover('an-tyre-canvas',    _anTyMousemove,  () => { _anTyHover  = null; anDrawTyres();      _anHideTip(); });
     _anWireHover('an-fastlap-canvas', _anFlMousemove,  () => { _anFlHover  = null; anDrawFastestLaps();_anHideTip(); });
+    _anWireHover('an-deg-canvas',     _anDegMousemove, () => { _anDegHover = null; anDrawTyreDeg();    _anHideTip(); });
 
   } catch(e) {
     console.warn('[Analysis]', e);
@@ -2903,6 +2974,27 @@ function anDrawComparison() {
     });
   };
 
+  // ── SC / VSC / Incident band highlighting ──
+  // A "slow lap" is one where the raw value is outside the clipped range [minV, maxV]
+  if (mode === 'laptime') {
+    for (let i = 0; i < nLaps; i++) {
+      const v1 = d1Vals[i], v2 = d2Vals[i];
+      const d1Slow = v1 !== null && (v1 < minV || v1 > maxV);
+      const d2Slow = v2 !== null && (v2 < minV || v2 > maxV);
+      if (!d1Slow && !d2Slow) continue;
+      const x = xOf(i);
+      const bandW = Math.max(4, pw / nLaps);
+      if (d1Slow && d2Slow) {
+        // Both slow → likely SC/VSC → yellow band
+        ctx.fillStyle = 'rgba(255,214,0,0.13)';
+      } else {
+        // One slow → incident → orange band
+        ctx.fillStyle = 'rgba(255,140,0,0.13)';
+      }
+      ctx.fillRect(x - bandW / 2, PAD.t, bandW, mainH);
+    }
+  }
+
   drawDriverLine(d1Vals, d1?.color || '#e10600', d1id);
   drawDriverLine(d2Vals, d2?.color || '#0067ff', d2id);
 
@@ -3038,18 +3130,20 @@ function anDrawPitstops() {
   const canvas = document.getElementById('an-pitstop-canvas');
   if (!canvas) return;
   const ctx = canvas.getContext('2d');
-  const W = canvas.width, H = canvas.height;
+  const W = canvas.width;
+  if (!_anTotalLaps) { ctx.fillStyle = '#13131a'; ctx.fillRect(0, 0, W, canvas.height); return; }
+
+  const drivers = Object.keys(_anDrivers);
+  const PAD = { t: 8, r: 20, b: 32, l: 50 };
+  const rowH = 22;
+  const H = PAD.t + drivers.length * rowH + PAD.b;
+  canvas.height = H;
   ctx.fillStyle = '#13131a'; ctx.fillRect(0, 0, W, H);
-  if (!_anTotalLaps) return;
 
   if (!_anPitstops.length) {
     ctx.fillStyle = '#52526a'; ctx.font = '13px Barlow,sans-serif'; ctx.textAlign = 'center';
     ctx.fillText('No pit stop data available for this race', W/2, H/2); return;
   }
-
-  const drivers = Object.keys(_anDrivers);
-  const PAD = { t: 8, r: 20, b: 28, l: 50 };
-  const rowH = Math.max(18, Math.min(28, (H - PAD.t - PAD.b) / drivers.length));
   const pw = W - PAD.l - PAD.r;
   const xScale = pw / _anTotalLaps;
 
@@ -3129,7 +3223,7 @@ function _anPsMousemove(e) {
   const { x, y } = _anCanvasXY(canvas, e);
   const drivers = Object.keys(_anDrivers);
   const PAD = { t: 8, r: 20, b: 28, l: 50 };
-  const rowH = Math.max(18, Math.min(28, (canvas.height - PAD.t - PAD.b) / drivers.length));
+  const rowH = 22;
   const pw = canvas.width - PAD.l - PAD.r;
   const xScale = pw / _anTotalLaps;
   const stopMap = {};
@@ -3247,7 +3341,7 @@ function _anTyMousemove(e) {
   const { x, y } = _anCanvasXY(canvas, e);
   const drivers = Object.keys(_anDrivers);
   const PAD = { t: 8, r: 20, b: 28, l: 50 };
-  const rowH = Math.max(18, Math.min(28, (canvas.height - PAD.t - PAD.b) / drivers.length));
+  const rowH = 22;
   const pw = canvas.width - PAD.l - PAD.r;
   const xScale = pw / _anTotalLaps;
   const stopMap = {};
@@ -3370,6 +3464,474 @@ function _anFlMousemove(e) {
     _anFlHover = i >= 0 ? i : null;
     anDrawFastestLaps();
   }
+}
+
+// ══════════════════════════════════════════════════════════════════════════════
+// FEATURE 2: TYRE DEGRADATION CURVE
+// ══════════════════════════════════════════════════════════════════════════════
+
+function _anGetStints(driverId) {
+  // Returns array of stints: [{startLap, endLap, laps:[{lapNum, secs}]}]
+  const pitLaps = [...(_anPitLapSet[driverId] || new Set())].sort((a, b) => a - b);
+  const bounds = [0, ...pitLaps, _anTotalLaps];
+  const stints = [];
+
+  for (let si = 0; si < bounds.length - 1; si++) {
+    const startLap = bounds[si] + 1; // first racing lap of stint
+    const endLap = bounds[si + 1];   // last racing lap of stint (pit lap belongs to prev stint)
+    const lapData = [];
+
+    for (let lapNum = startLap; lapNum <= endLap; lapNum++) {
+      // skip the actual pit lap (it's in the previous stint boundary)
+      if (_anPitLapSet[driverId] && _anPitLapSet[driverId].has(lapNum)) continue;
+      const lapObj = _anLaps[lapNum - 1];
+      if (!lapObj) continue;
+      const timing = lapObj.Timings.find(t => t.driverId === driverId);
+      if (!timing) continue;
+      const secs = rc2ParseTime(timing.time);
+      if (secs === null) continue;
+      lapData.push({ lapNum, secs });
+    }
+
+    if (lapData.length > 0) {
+      stints.push({ stintNum: si + 1, startLap, endLap, laps: lapData });
+    }
+  }
+  return stints;
+}
+
+function _linReg(xs, ys) {
+  // Returns {slope, intercept} for simple linear regression
+  const n = xs.length;
+  if (n < 2) return { slope: 0, intercept: ys[0] || 0 };
+  const sx = xs.reduce((a, b) => a + b, 0);
+  const sy = ys.reduce((a, b) => a + b, 0);
+  const sxy = xs.reduce((acc, x, i) => acc + x * ys[i], 0);
+  const sxx = xs.reduce((acc, x) => acc + x * x, 0);
+  const denom = n * sxx - sx * sx;
+  if (denom === 0) return { slope: 0, intercept: sy / n };
+  const slope = (n * sxy - sx * sy) / denom;
+  const intercept = (sy - slope * sx) / n;
+  return { slope, intercept };
+}
+
+function anDrawTyreDeg() {
+  const canvas = document.getElementById('an-deg-canvas');
+  if (!canvas) return;
+  const ctx = canvas.getContext('2d');
+  const W = canvas.width, H = canvas.height;
+  ctx.fillStyle = '#13131a';
+  ctx.fillRect(0, 0, W, H);
+
+  if (!_anLaps.length) {
+    ctx.fillStyle = '#52526a'; ctx.font = '13px Barlow,sans-serif'; ctx.textAlign = 'center';
+    ctx.fillText('Load a race to see tyre degradation', W / 2, H / 2);
+    return;
+  }
+
+  const d1id = (document.getElementById('deg-d1') || {}).value || '';
+  const d2id = (document.getElementById('deg-d2') || {}).value || '';
+  if (!d1id && !d2id) return;
+
+  const PAD = { t: 30, r: 30, b: 48, l: 72 };
+  const pw = W - PAD.l - PAD.r;
+  const ph = H - PAD.t - PAD.b;
+
+  // Collect all lap time values to determine Y range (clip outliers)
+  const allSecs = [];
+  const driverData = []; // [{driverId, stints, d, lineStyle}]
+
+  for (const [idx, did] of [[0, d1id], [1, d2id]]) {
+    if (!did || !_anDrivers[did]) continue;
+    const stints = _anGetStints(did);
+    stints.forEach(stint => stint.laps.forEach(lp => allSecs.push(lp.secs)));
+    driverData.push({ driverId: did, stints, d: _anDrivers[did], lineStyle: idx === 0 ? 'solid' : 'dashed' });
+  }
+
+  if (!allSecs.length) {
+    ctx.fillStyle = '#52526a'; ctx.font = '13px Barlow,sans-serif'; ctx.textAlign = 'center';
+    ctx.fillText('No lap time data available', W / 2, H / 2);
+    return;
+  }
+
+  const sorted = [...allSecs].sort((a, b) => a - b);
+  const minV = sorted[Math.floor(sorted.length * 0.02)] * 0.999;
+  const maxV = sorted[Math.floor(sorted.length * 0.98)] * 1.001;
+
+  // Determine max stint lap count across all drivers for X axis
+  let maxStintLap = 1;
+  driverData.forEach(({ stints }) => {
+    stints.forEach(s => { if (s.laps.length > maxStintLap) maxStintLap = s.laps.length; });
+  });
+
+  const xOf = stintLapIdx => PAD.l + (stintLapIdx / (maxStintLap - 1 || 1)) * pw;
+  const yOf = v => PAD.t + (maxV - Math.min(Math.max(v, minV), maxV)) / (maxV - minV) * ph;
+
+  // Grid lines
+  for (let g = 0; g <= 5; g++) {
+    const y = PAD.t + (g / 5) * ph;
+    ctx.strokeStyle = 'rgba(255,255,255,0.06)'; ctx.lineWidth = 1; ctx.setLineDash([]);
+    ctx.beginPath(); ctx.moveTo(PAD.l, y); ctx.lineTo(PAD.l + pw, y); ctx.stroke();
+    const val = maxV - (g / 5) * (maxV - minV);
+    ctx.fillStyle = '#52526a'; ctx.font = '10px JetBrains Mono,monospace'; ctx.textAlign = 'right';
+    ctx.fillText(_fmtLapTime(val), PAD.l - 6, y + 4);
+  }
+
+  // X axis gridlines every 5 stint laps
+  const xStep = maxStintLap <= 20 ? 5 : maxStintLap <= 40 ? 10 : 15;
+  ctx.fillStyle = '#52526a'; ctx.font = '10px JetBrains Mono,monospace'; ctx.textAlign = 'center';
+  for (let l = 0; l <= maxStintLap; l += xStep) {
+    const x = xOf(l - 1);
+    ctx.strokeStyle = 'rgba(255,255,255,0.04)'; ctx.lineWidth = 1; ctx.setLineDash([]);
+    ctx.beginPath(); ctx.moveTo(x, PAD.t); ctx.lineTo(x, PAD.t + ph); ctx.stroke();
+    ctx.fillText(l, x, PAD.t + ph + 16);
+  }
+  ctx.fillText('Stint Lap', PAD.l + pw / 2, H - 8);
+
+  // Per-driver rendering
+  driverData.forEach(({ driverId, stints, d, lineStyle }, dIdx) => {
+    stints.forEach((stint, si) => {
+      const color = _AN_STINT_COLORS[si % _AN_STINT_COLORS.length];
+      const pts = stint.laps.map((lp, lapI) => ({
+        x: xOf(lapI),
+        y: yOf(lp.secs),
+        lapNum: lp.lapNum,
+        secs: lp.secs,
+        stintLapIdx: lapI,
+      }));
+
+      if (pts.length === 0) return;
+
+      // Main line (solid for d1, dashed for d2)
+      ctx.strokeStyle = color;
+      ctx.lineWidth = lineStyle === 'solid' ? 2.5 : 2;
+      ctx.lineJoin = 'round';
+      ctx.setLineDash(lineStyle === 'dashed' ? [6, 4] : []);
+      ctx.beginPath();
+      pts.forEach((p, i) => i === 0 ? ctx.moveTo(p.x, p.y) : ctx.lineTo(p.x, p.y));
+      ctx.stroke();
+      ctx.setLineDash([]);
+
+      // Dots
+      pts.forEach(p => {
+        ctx.fillStyle = color;
+        ctx.beginPath(); ctx.arc(p.x, p.y, 3, 0, Math.PI * 2); ctx.fill();
+      });
+
+      // Linear regression trend line (dashed, same color)
+      if (pts.length >= 2) {
+        const xs = pts.map((_, i) => i);
+        const ys = stint.laps.map(lp => lp.secs);
+        const { slope, intercept } = _linReg(xs, ys);
+        const rx0 = xOf(0), ry0 = yOf(intercept);
+        const rx1 = xOf(pts.length - 1), ry1 = yOf(intercept + slope * (pts.length - 1));
+
+        ctx.strokeStyle = color + 'aa';
+        ctx.lineWidth = 1.5;
+        ctx.setLineDash([4, 5]);
+        ctx.beginPath(); ctx.moveTo(rx0, ry0); ctx.lineTo(rx1, ry1); ctx.stroke();
+        ctx.setLineDash([]);
+
+        // Stint label: "Stint N · +X.XXXs/lap"
+        const slopeStr = slope >= 0 ? `+${slope.toFixed(3)}` : slope.toFixed(3);
+        const label = `Stint ${stint.stintNum} · ${slopeStr}s/lap`;
+        const labelX = pts[0].x + 4;
+        const labelY = Math.max(PAD.t + 14, Math.min(PAD.t + ph - 4, pts[0].y - 8));
+        ctx.font = 'bold 9px JetBrains Mono,monospace';
+        ctx.textAlign = 'left';
+        const tw = ctx.measureText(label).width;
+        ctx.fillStyle = color + '28';
+        ctx.fillRect(labelX - 2, labelY - 10, tw + 4, 12);
+        ctx.fillStyle = color;
+        ctx.fillText(label, labelX, labelY);
+      }
+
+      // Hover highlight
+      if (_anDegHover && _anDegHover.driverId === driverId && _anDegHover.stintIdx === si) {
+        const li = _anDegHover.lapIdx;
+        if (li !== null && li < pts.length) {
+          const p = pts[li];
+          ctx.fillStyle = '#fff';
+          ctx.beginPath(); ctx.arc(p.x, p.y, 5, 0, Math.PI * 2); ctx.fill();
+          ctx.fillStyle = color;
+          ctx.beginPath(); ctx.arc(p.x, p.y, 3, 0, Math.PI * 2); ctx.fill();
+          _anTip(ctx, p.x, p.y, [
+            { text: `${d.code} — Stint ${stint.stintNum}`, bold: true, color: d.color },
+            { text: `Race Lap ${stint.laps[li].lapNum}  · Stint Lap ${li + 1}`, color: '#ccc' },
+            { text: `Time: ${_fmtLapTime(stint.laps[li].secs)}`, color: '#fff' },
+          ], W, H);
+        }
+      }
+    });
+
+    // Driver name badge
+    const align = dIdx === 0 ? 'left' : 'right';
+    const label = d.code + '  ' + d.name;
+    ctx.font = 'bold 11px Barlow Condensed,sans-serif';
+    ctx.textAlign = 'left';
+    const tw = ctx.measureText(label).width;
+    const bx = align === 'left' ? PAD.l + 6 : PAD.l + pw - tw - 6;
+    const by = dIdx === 0 ? PAD.t + 5 : PAD.t + 22;
+    ctx.fillStyle = d.color + '28';
+    ctx.fillRect(bx - 4, by, tw + 8, 15);
+    ctx.fillStyle = d.color;
+    ctx.fillText(label, bx, by + 11);
+  });
+
+  // Y axis label
+  ctx.save(); ctx.translate(14, PAD.t + ph / 2); ctx.rotate(-Math.PI / 2);
+  ctx.fillStyle = '#52526a'; ctx.font = '10px JetBrains Mono,monospace'; ctx.textAlign = 'center';
+  ctx.fillText('Lap Time', 0, 0); ctx.restore();
+}
+
+function _anDegMousemove(e) {
+  _anMouseClient = { x: e.clientX, y: e.clientY };
+  const canvas = document.getElementById('an-deg-canvas');
+  if (!canvas || !_anLaps.length) return;
+  const { x } = _anCanvasXY(canvas, e);
+
+  const d1id = (document.getElementById('deg-d1') || {}).value || '';
+  const d2id = (document.getElementById('deg-d2') || {}).value || '';
+  const PAD = { l: 72, r: 30 };
+  const pw = canvas.width - PAD.l - PAD.r;
+
+  let maxStintLap = 1;
+  let found = null;
+
+  for (const [dIdx, did] of [[0, d1id], [1, d2id]]) {
+    if (!did || !_anDrivers[did]) continue;
+    const stints = _anGetStints(did);
+    stints.forEach(s => { if (s.laps.length > maxStintLap) maxStintLap = s.laps.length; });
+    stints.forEach((stint, si) => {
+      stint.laps.forEach((lp, lapI) => {
+        const sx = PAD.l + (lapI / (maxStintLap - 1 || 1)) * pw;
+        if (Math.abs(x - sx) < 8) {
+          found = { driverId: did, stintIdx: si, lapIdx: lapI };
+        }
+      });
+    });
+  }
+
+  if (JSON.stringify(found) !== JSON.stringify(_anDegHover)) {
+    _anDegHover = found;
+    anDrawTyreDeg();
+    if (!found) _anHideTip();
+  }
+}
+
+// ══════════════════════════════════════════════════════════════════════════════
+// FEATURE 3: HEAD-TO-HEAD SEASON STATS
+// ══════════════════════════════════════════════════════════════════════════════
+
+async function loadH2H() {
+  const yearEl = document.getElementById('h2h-year');
+  const d1El = document.getElementById('h2h-d1');
+  const d2El = document.getElementById('h2h-d2');
+  const year = yearEl ? yearEl.value : '';
+  const d1id = d1El ? d1El.value : '';
+  const d2id = d2El ? d2El.value : '';
+  if (!year || !d1id || !d2id || d1id === d2id) return;
+
+  const loadingEl = document.getElementById('h2h-loading');
+  const statsEl = document.getElementById('h2h-stats');
+  if (loadingEl) { loadingEl.style.display = 'flex'; loadingEl.classList.add('show'); }
+  if (statsEl) statsEl.style.display = 'none';
+
+  // Clear the h2h canvas
+  const hCanvas = document.getElementById('h2h-canvas');
+  if (hCanvas) {
+    const hCtx = hCanvas.getContext('2d');
+    hCtx.fillStyle = '#13131a'; hCtx.fillRect(0, 0, hCanvas.width, hCanvas.height);
+  }
+
+  try {
+    const [r1Data, r2Data] = await Promise.all([
+      fetchJSON(`${API}/${year}/drivers/${d1id}/results.json?limit=100`),
+      fetchJSON(`${API}/${year}/drivers/${d2id}/results.json?limit=100`),
+    ]);
+
+    const d1Races = r1Data.MRData?.RaceTable?.Races || [];
+    const d2Races = r2Data.MRData?.RaceTable?.Races || [];
+
+    const d1 = _anDrivers[d1id] || { code: d1id.toUpperCase(), name: d1id, color: '#e10600' };
+    const d2 = _anDrivers[d2id] || { code: d2id.toUpperCase(), name: d2id, color: '#0067ff' };
+
+    function parseResults(races) {
+      let wins = 0, podiums = 0, points = 0, poles = 0, fastestLaps = 0, dnfs = 0;
+      let positionSum = 0, finishedCount = 0;
+      const cumPoints = [];
+      let cumPts = 0;
+      races.forEach(r => {
+        const res = r.Results && r.Results[0];
+        if (!res) return;
+        const pos = parseInt(res.position);
+        const grid = parseInt(res.grid);
+        const pts = parseFloat(res.points) || 0;
+        const status = res.status || '';
+        const finished = status === 'Finished' || /^\+\d+ Lap/.test(status);
+        cumPts += pts;
+        points += pts;
+        if (pos === 1) wins++;
+        if (pos <= 3) podiums++;
+        if (grid === 1) poles++;
+        if (res.FastestLap?.rank === '1') fastestLaps++;
+        if (!finished) dnfs++;
+        if (!isNaN(pos)) { positionSum += pos; finishedCount++; }
+        cumPoints.push({ round: parseInt(r.round), raceName: r.raceName, pts, cumPts, pos });
+      });
+      const avgFinish = finishedCount > 0 ? (positionSum / finishedCount).toFixed(1) : '—';
+      return { wins, podiums, points, poles, fastestLaps, dnfs, avgFinish, cumPoints, finishedCount };
+    }
+
+    const s1 = parseResults(d1Races);
+    const s2 = parseResults(d2Races);
+
+    // Head-to-head race count (where both finished in same race)
+    let h2hD1Wins = 0, h2hD2Wins = 0;
+    d1Races.forEach(r1 => {
+      const r2 = d2Races.find(r => r.round === r1.round);
+      if (!r2) return;
+      const res1 = r1.Results && r1.Results[0];
+      const res2 = r2.Results && r2.Results[0];
+      if (!res1 || !res2) return;
+      const p1 = parseInt(res1.position), p2 = parseInt(res2.position);
+      if (!isNaN(p1) && !isNaN(p2)) {
+        if (p1 < p2) h2hD1Wins++; else if (p2 < p1) h2hD2Wins++;
+      }
+    });
+
+    // Build stat tiles HTML
+    function statTile(label, v1, v2, higherBetter = true) {
+      const n1 = parseFloat(v1), n2 = parseFloat(v2);
+      const d1Better = higherBetter ? n1 > n2 : n1 < n2;
+      const d2Better = higherBetter ? n2 > n1 : n2 < n1;
+      const c1 = d1Better ? d1.color : (d2Better ? '#52526a' : '#9898b0');
+      const c2 = d2Better ? d2.color : (d1Better ? '#52526a' : '#9898b0');
+      const total = Math.abs(n1) + Math.abs(n2) || 1;
+      const pct1 = Math.round((Math.abs(n1) / total) * 100);
+      const pct2 = 100 - pct1;
+      return `<div class="h2h-tile">
+        <div class="h2h-tile-label">${label}</div>
+        <div class="h2h-tile-vals">
+          <span style="color:${c1}">${v1}</span>
+          <span style="color:var(--t3);font-size:13px">vs</span>
+          <span style="color:${c2}">${v2}</span>
+        </div>
+        <div class="h2h-tile-bar">
+          <div style="width:${pct1}%;background:${d1.color};opacity:0.7"></div>
+          <div style="width:${pct2}%;background:${d2.color};opacity:0.7"></div>
+        </div>
+      </div>`;
+    }
+
+    const statsHTML = `
+      <div style="display:flex;align-items:center;gap:20px;padding:8px 4px 12px;font-family:'Barlow Condensed',sans-serif;font-size:14px;font-weight:700">
+        <span style="color:${d1.color}">${d1.code} — ${d1.name}</span>
+        <span style="color:var(--t3)">vs</span>
+        <span style="color:${d2.color}">${d2.code} — ${d2.name}</span>
+        <span style="color:var(--t3);font-size:12px;margin-left:8px">${year} Season</span>
+      </div>
+      <div class="h2h-grid">
+        ${statTile('Wins', s1.wins, s2.wins, true)}
+        ${statTile('Podiums', s1.podiums, s2.podiums, true)}
+        ${statTile('Points', s1.points, s2.points, true)}
+        ${statTile('Pole Positions', s1.poles, s2.poles, true)}
+        ${statTile('Fastest Laps', s1.fastestLaps, s2.fastestLaps, true)}
+        ${statTile('DNFs', s1.dnfs, s2.dnfs, false)}
+        ${statTile('Avg Finish', s1.avgFinish, s2.avgFinish, false)}
+        ${statTile('H2H Races', h2hD1Wins, h2hD2Wins, true)}
+      </div>`;
+
+    if (statsEl) { statsEl.innerHTML = statsHTML; statsEl.style.display = 'block'; }
+
+    // Draw points progression
+    anDrawH2HChart(s1.cumPoints, s2.cumPoints, d1, d2);
+
+  } catch (e) {
+    const statsEl = document.getElementById('h2h-stats');
+    if (statsEl) { statsEl.innerHTML = `<div style="color:#ff6b6b;padding:12px">Error: ${e.message}</div>`; statsEl.style.display = 'block'; }
+    console.warn('[H2H]', e);
+  } finally {
+    if (loadingEl) { loadingEl.style.display = 'none'; loadingEl.classList.remove('show'); }
+  }
+}
+
+function anDrawH2HChart(d1data, d2data, d1, d2) {
+  const canvas = document.getElementById('h2h-canvas');
+  if (!canvas) return;
+  const ctx = canvas.getContext('2d');
+  const W = canvas.width, H = canvas.height;
+  ctx.fillStyle = '#13131a'; ctx.fillRect(0, 0, W, H);
+
+  if (!d1data.length && !d2data.length) return;
+
+  const allData = [...d1data, ...d2data];
+  const maxRound = Math.max(...allData.map(r => r.round), 1);
+  const maxPts = Math.max(...allData.map(r => r.cumPts), 1);
+
+  const PAD = { t: 24, r: 100, b: 36, l: 60 };
+  const pw = W - PAD.l - PAD.r;
+  const ph = H - PAD.t - PAD.b;
+
+  const xOf = round => PAD.l + ((round - 1) / (maxRound - 1 || 1)) * pw;
+  const yOf = pts => PAD.t + (1 - pts / maxPts) * ph;
+
+  // Grid lines
+  for (let g = 0; g <= 4; g++) {
+    const y = PAD.t + (g / 4) * ph;
+    const val = Math.round(maxPts * (1 - g / 4));
+    ctx.strokeStyle = 'rgba(255,255,255,0.06)'; ctx.lineWidth = 1;
+    ctx.beginPath(); ctx.moveTo(PAD.l, y); ctx.lineTo(PAD.l + pw, y); ctx.stroke();
+    ctx.fillStyle = '#52526a'; ctx.font = '10px JetBrains Mono,monospace'; ctx.textAlign = 'right';
+    ctx.fillText(val, PAD.l - 6, y + 4);
+  }
+
+  // X axis labels
+  const xStep = maxRound <= 15 ? 3 : maxRound <= 25 ? 5 : 7;
+  ctx.fillStyle = '#52526a'; ctx.font = '10px JetBrains Mono,monospace'; ctx.textAlign = 'center';
+  for (let r = 1; r <= maxRound; r += xStep) {
+    ctx.fillText(`R${r}`, xOf(r), PAD.t + ph + 16);
+  }
+  ctx.fillText('Race', PAD.l + pw / 2, H - 6);
+
+  // Draw lines for each driver
+  [[d1data, d1], [d2data, d2]].forEach(([data, driver], dIdx) => {
+    if (!data.length) return;
+    ctx.strokeStyle = driver.color; ctx.lineWidth = 2.5;
+    ctx.lineJoin = 'round'; ctx.setLineDash([]);
+    ctx.beginPath();
+    data.forEach((r, i) => {
+      const x = xOf(r.round), y = yOf(r.cumPts);
+      i === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y);
+    });
+    ctx.stroke();
+
+    // Dots for each race
+    data.forEach(r => {
+      const x = xOf(r.round), y = yOf(r.cumPts);
+      ctx.fillStyle = driver.color;
+      ctx.beginPath(); ctx.arc(x, y, 3.5, 0, Math.PI * 2); ctx.fill();
+    });
+
+    // Final points label
+    const last = data[data.length - 1];
+    if (last) {
+      const lx = xOf(last.round) + 8;
+      const ly = yOf(last.cumPts);
+      ctx.fillStyle = driver.color;
+      ctx.font = 'bold 11px Barlow Condensed,sans-serif'; ctx.textAlign = 'left';
+      ctx.fillText(`${driver.code} ${last.cumPts}pts`, lx, ly + 4);
+    }
+  });
+
+  // Title
+  ctx.fillStyle = '#9898b0'; ctx.font = 'bold 12px Barlow Condensed,sans-serif'; ctx.textAlign = 'center';
+  ctx.fillText('Cumulative Points Progression', W / 2, 16);
+
+  // Y axis label
+  ctx.save(); ctx.translate(14, PAD.t + ph / 2); ctx.rotate(-Math.PI / 2);
+  ctx.fillStyle = '#52526a'; ctx.font = '10px JetBrains Mono,monospace'; ctx.textAlign = 'center';
+  ctx.fillText('Points', 0, 0); ctx.restore();
 }
 </script>
 </body>
