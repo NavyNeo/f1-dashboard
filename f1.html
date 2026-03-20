@@ -2596,7 +2596,9 @@ function _anTip(ctx, mx, my, lines, W, H) {
   const bw = tw + PX * 2 + 2, bh = lines.length * LH + PX * 1.2;
   let tx = mx + 14, ty = my - bh / 2;
   if (tx + bw > W - 4) tx = mx - bw - 14;
+  if (tx < 4) tx = 4;
   ty = Math.max(4, Math.min(H - bh - 4, ty));
+  if (bh > H - 8) ty = 4;
   ctx.fillStyle = 'rgba(14,14,22,0.96)';
   ctx.strokeStyle = 'rgba(255,255,255,0.14)';
   ctx.lineWidth = 1;
