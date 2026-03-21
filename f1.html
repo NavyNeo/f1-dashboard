@@ -3579,112 +3579,105 @@ function anDrawTyreDeg() {
   ctx.textAlign = 'right';
   ctx.fillText('LAP', PAD.l - 6, H - 6);
 
-  // Draw drivers
-  driverData.forEach(({ did, d, stints, idx }) => {
-    const col = d.color;
-    const isDashed = idx === 1;
-
-    stints.forEach((stint, si) => {
-      // Classify laps: clean (in range) vs slow (outlier)
+  // Pre-compute laps for each driver/stint so we can draw in layers
+  const driverStints = driverData.map(({ did, d, stints, idx }) => ({
+    did, d, idx,
+    stints: stints.map((stint, si) => {
       const laps = stint.laps.map(lp => ({
         ...lp, clean: lp.secs >= minV && lp.secs <= maxV,
         x: xOf(lp.lapNum), y: yOf(lp.secs),
       }));
-      if (!laps.length) return;
+      const cleanLaps = laps.filter(l => l.clean);
+      let reg = null;
+      if (cleanLaps.length >= 3) {
+        const xs = cleanLaps.map((_, i) => i);
+        const ys = cleanLaps.map(l => l.secs);
+        reg = _linReg(xs, ys);
+      }
+      return { si, laps, cleanLaps, reg };
+    }),
+  }));
 
-      // ── Main line through clean laps, dashed bridge over slow laps ──
-      ctx.strokeStyle = col; ctx.lineWidth = isDashed ? 2 : 2.5;
-      ctx.lineJoin = 'round'; ctx.lineCap = 'round';
-      ctx.setLineDash(isDashed ? [7, 4] : []);
-      let seg = [];
-      const flush = () => {
-        if (seg.length < 2) { seg = []; return; }
-        ctx.beginPath(); seg.forEach((p,i) => i===0 ? ctx.moveTo(p.x,p.y) : ctx.lineTo(p.x,p.y));
-        ctx.stroke(); seg = [];
-      };
-      laps.forEach(lp => { if (lp.clean) seg.push(lp); else flush(); });
-      flush();
-      ctx.setLineDash([]);
-
-      // Dashed bridges over outlier laps
-      ctx.setLineDash([3,6]); ctx.strokeStyle = col + '44'; ctx.lineWidth = 1.5;
-      let lastClean = null;
-      laps.forEach(lp => {
-        if (lp.clean) { lastClean = lp; }
-        else if (lastClean) {
-          // find next clean
-          const next = laps.find(l => l.lapNum > lp.lapNum && l.clean);
-          if (next) { ctx.beginPath(); ctx.moveTo(lastClean.x, lastClean.y); ctx.lineTo(next.x, next.y); ctx.stroke(); }
-        }
-      });
-      ctx.setLineDash([]);
-
-      // Dots on clean laps
+  // ── Layer 1: scatter dots (faint — raw data for context) ──
+  driverStints.forEach(({ d, idx, stints }) => {
+    const col = d.color;
+    stints.forEach(({ laps }) => {
       laps.forEach(lp => {
         if (!lp.clean) return;
-        ctx.fillStyle = col;
-        ctx.beginPath(); ctx.arc(lp.x, lp.y, isDashed ? 2.5 : 3, 0, Math.PI*2); ctx.fill();
+        ctx.fillStyle = col + (idx === 0 ? '70' : '55');
+        ctx.beginPath(); ctx.arc(lp.x, lp.y, 2.5, 0, Math.PI * 2); ctx.fill();
       });
-
-      // ── Linear regression on clean laps ──
-      const cleanLaps = laps.filter(l => l.clean);
-      if (cleanLaps.length >= 3) {
-        const xs = cleanLaps.map((_,i) => i);
-        const ys = cleanLaps.map(l => l.secs);
-        const { slope, intercept } = _linReg(xs, ys);
-
-        // Draw trend line from first to last clean lap
-        const tx0 = cleanLaps[0].x,     ty0 = yOf(intercept);
-        const tx1 = cleanLaps[cleanLaps.length-1].x, ty1 = yOf(intercept + slope*(cleanLaps.length-1));
-        ctx.strokeStyle = col + '88'; ctx.lineWidth = 1.5; ctx.setLineDash([4,5]);
-        ctx.beginPath(); ctx.moveTo(tx0, ty0); ctx.lineTo(tx1, ty1); ctx.stroke();
-        ctx.setLineDash([]);
-
-        // Label at end of trend line: "S1 +0.050s/lap"
-        const sStr = (slope >= 0 ? '+' : '') + slope.toFixed(3) + 's/lap';
-        const lbl  = `S${si+1} ${sStr}`;
-        const lx   = tx1 + 5;
-        const ly   = Math.max(PAD.t + 10, Math.min(PAD.t + ph - 4, ty1));
-        ctx.font = '9px JetBrains Mono,monospace'; ctx.textAlign = 'left';
-        const tw = ctx.measureText(lbl).width;
-        ctx.fillStyle = '#13131a';
-        ctx.fillRect(lx - 2, ly - 9, tw + 4, 11);
-        ctx.fillStyle = col + 'dd';
-        ctx.fillText(lbl, lx, ly);
-      }
-
-      // ── Hover highlight ──
-      if (_anDegHover?.did === did && _anDegHover?.stintIdx === si) {
-        const li = _anDegHover.lapIdx;
-        const lp = laps[li];
-        if (lp && lp.clean) {
-          ctx.fillStyle = '#fff'; ctx.beginPath(); ctx.arc(lp.x, lp.y, 6, 0, Math.PI*2); ctx.fill();
-          ctx.fillStyle = col;   ctx.beginPath(); ctx.arc(lp.x, lp.y, 3.5, 0, Math.PI*2); ctx.fill();
-          _anTip(ctx, lp.x, lp.y, [
-            { text: `${d.code} — Stint ${si+1}`, bold: true, color: col },
-            { text: `Race Lap ${lp.lapNum} · Stint Lap ${li+1}`, color: '#ccc' },
-            { text: `Time: ${_fmtLapTime(lp.secs)}`, color: '#fff' },
-          ], W, H);
-        }
-      }
     });
+  });
 
-    // Pit stop triangles
+  // ── Layer 2: trend lines (prominent — the point of this chart) ──
+  driverStints.forEach(({ d, idx, stints }) => {
+    const col = d.color;
+    stints.forEach(({ si, cleanLaps, reg }) => {
+      if (!reg || cleanLaps.length < 3) return;
+      const { slope, intercept } = reg;
+      const tx0 = cleanLaps[0].x;
+      const ty0 = yOf(intercept);
+      const tx1 = cleanLaps[cleanLaps.length - 1].x;
+      const ty1 = yOf(intercept + slope * (cleanLaps.length - 1));
+
+      // Bold solid trend line (D1 solid, D2 dashed)
+      ctx.strokeStyle = col; ctx.lineWidth = 2.5; ctx.lineCap = 'round';
+      ctx.setLineDash(idx === 1 ? [8, 4] : []);
+      ctx.beginPath(); ctx.moveTo(tx0, ty0); ctx.lineTo(tx1, ty1); ctx.stroke();
+      ctx.setLineDash([]);
+
+      // End dot
+      ctx.fillStyle = col;
+      ctx.beginPath(); ctx.arc(tx1, ty1, 4, 0, Math.PI * 2); ctx.fill();
+
+      // Label: "S1 +0.050s/lap"
+      const sStr = (slope >= 0 ? '+' : '') + slope.toFixed(3) + 's/lap';
+      const lbl = `S${si + 1} ${sStr}`;
+      const lx = Math.min(tx1 + 8, PAD.l + pw - 90);
+      const ly = Math.max(PAD.t + 12, Math.min(PAD.t + ph - 6, ty1));
+      ctx.font = 'bold 10px JetBrains Mono,monospace'; ctx.textAlign = 'left';
+      const tw = ctx.measureText(lbl).width;
+      ctx.fillStyle = 'rgba(19,19,26,0.85)';
+      ctx.fillRect(lx - 3, ly - 11, tw + 6, 14);
+      ctx.fillStyle = col;
+      ctx.fillText(lbl, lx, ly);
+    });
+  });
+
+  // ── Layer 3: hover highlight ──
+  driverStints.forEach(({ did, d, stints }) => {
+    const col = d.color;
+    stints.forEach(({ si, laps }) => {
+      if (_anDegHover?.did !== did || _anDegHover?.stintIdx !== si) return;
+      const lp = laps[_anDegHover.lapIdx];
+      if (!lp?.clean) return;
+      ctx.fillStyle = '#fff'; ctx.beginPath(); ctx.arc(lp.x, lp.y, 6, 0, Math.PI * 2); ctx.fill();
+      ctx.fillStyle = col;   ctx.beginPath(); ctx.arc(lp.x, lp.y, 3.5, 0, Math.PI * 2); ctx.fill();
+      _anTip(ctx, lp.x, lp.y, [
+        { text: `${d.code} — Stint ${si + 1}`, bold: true, color: col },
+        { text: `Race Lap ${lp.lapNum} · Stint Lap ${_anDegHover.lapIdx + 1}`, color: '#ccc' },
+        { text: `Time: ${_fmtLapTime(lp.secs)}`, color: '#fff' },
+      ], W, H);
+    });
+  });
+
+  // ── Layer 4: pit triangles + driver badges (always on top) ──
+  driverStints.forEach(({ did, d, idx }) => {
+    const col = d.color;
     (_anPitLapSet[did] || new Set()).forEach(lap => {
       const x = xOf(lap);
       ctx.fillStyle = col + 'cc';
       ctx.beginPath();
-      ctx.moveTo(x-5, PAD.t+ph+8); ctx.lineTo(x+5, PAD.t+ph+8); ctx.lineTo(x, PAD.t+ph+2);
+      ctx.moveTo(x - 5, PAD.t + ph + 8); ctx.lineTo(x + 5, PAD.t + ph + 8); ctx.lineTo(x, PAD.t + ph + 2);
       ctx.closePath(); ctx.fill();
     });
-
-    // Driver badge
     const lbl = `${d.code}  ${d.name}`;
     ctx.font = 'bold 11px Barlow Condensed,sans-serif'; ctx.textAlign = 'left';
     const tw = ctx.measureText(lbl).width;
     const bx = idx === 0 ? PAD.l + 6 : PAD.l + pw - tw - 6;
-    ctx.fillStyle = col + '28'; ctx.fillRect(bx-4, PAD.t+5, tw+8, 15);
-    ctx.fillStyle = col; ctx.fillText(lbl, bx, PAD.t+16);
+    ctx.fillStyle = col + '28'; ctx.fillRect(bx - 4, PAD.t + 5, tw + 8, 15);
+    ctx.fillStyle = col; ctx.fillText(lbl, bx, PAD.t + 16);
   });
 }
 
@@ -3699,18 +3692,17 @@ function _anDegMousemove(e) {
   const PAD = { l: 72, r: 30 };
   const pw = canvas.width - PAD.l - PAD.r;
 
-  let maxStintLap = 1;
+  const nLaps = _anTotalLaps;
   let found = null;
 
   for (const [dIdx, did] of [[0, d1id], [1, d2id]]) {
     if (!did || !_anDrivers[did]) continue;
     const stints = _anGetStints(did);
-    stints.forEach(s => { if (s.laps.length > maxStintLap) maxStintLap = s.laps.length; });
     stints.forEach((stint, si) => {
       stint.laps.forEach((lp, lapI) => {
-        const sx = PAD.l + (lapI / (maxStintLap - 1 || 1)) * pw;
+        const sx = PAD.l + ((lp.lapNum - 1) / (nLaps - 1 || 1)) * pw;
         if (Math.abs(x - sx) < 8) {
-          found = { driverId: did, stintIdx: si, lapIdx: lapI };
+          found = { did, stintIdx: si, lapIdx: lapI };
         }
       });
     });
