@@ -2785,15 +2785,6 @@ async function loadAnalysis() {
       if (degD2) degD2.value = ids[1];
     }
 
-    // Populate h2h driver dropdowns from current race drivers
-    const h2hD1 = document.getElementById('h2h-d1');
-    const h2hD2 = document.getElementById('h2h-d2');
-    if (h2hD1) h2hD1.innerHTML = opts;
-    if (h2hD2) h2hD2.innerHTML = opts;
-    if (ids.length >= 2) {
-      if (h2hD1) h2hD1.value = ids[0];
-      if (h2hD2) h2hD2.value = ids[1];
-    }
 
     // Reset hover states
     _anCmpHover = _anPsHover = _anTyHover = _anFlHover = _anDegHover = null;
