@@ -3518,169 +3518,174 @@ function anDrawTyreDeg() {
   const canvas = document.getElementById('an-deg-canvas');
   if (!canvas) return;
   const ctx = canvas.getContext('2d');
-  const W = canvas.width, H = canvas.height;
-  ctx.fillStyle = '#13131a';
-  ctx.fillRect(0, 0, W, H);
+  const W = canvas.width;
 
-  if (!_anLaps.length) {
+  const placeholder = (msg) => {
+    canvas.height = 120;
+    ctx.fillStyle = '#13131a'; ctx.fillRect(0, 0, W, 120);
     ctx.fillStyle = '#52526a'; ctx.font = '13px Barlow,sans-serif'; ctx.textAlign = 'center';
-    ctx.fillText('Load a race to see tyre degradation', W / 2, H / 2);
-    return;
-  }
+    ctx.fillText(msg, W / 2, 62);
+  };
 
-  const d1id = (document.getElementById('deg-d1') || {}).value || '';
-  const d2id = (document.getElementById('deg-d2') || {}).value || '';
-  if (!d1id && !d2id) return;
+  if (!_anLaps.length) return placeholder('Load a race to see tyre degradation');
 
-  const PAD = { t: 30, r: 30, b: 48, l: 72 };
-  const pw = W - PAD.l - PAD.r;
-  const ph = H - PAD.t - PAD.b;
+  const d1id = document.getElementById('deg-d1')?.value || '';
+  const d2id = document.getElementById('deg-d2')?.value || '';
+  if (!d1id && !d2id) return placeholder('Select drivers above');
 
-  // Collect all lap time values to determine Y range (clip outliers)
+  // Build driver data
+  const driverData = [];
   const allSecs = [];
-  const driverData = []; // [{driverId, stints, d, lineStyle}]
-
   for (const [idx, did] of [[0, d1id], [1, d2id]]) {
     if (!did || !_anDrivers[did]) continue;
     const stints = _anGetStints(did);
-    stints.forEach(stint => stint.laps.forEach(lp => allSecs.push(lp.secs)));
-    driverData.push({ driverId: did, stints, d: _anDrivers[did], lineStyle: idx === 0 ? 'solid' : 'dashed' });
+    stints.forEach(s => s.laps.forEach(lp => allSecs.push(lp.secs)));
+    driverData.push({ did, d: _anDrivers[did], stints, idx });
   }
+  if (!allSecs.length) return placeholder('No lap time data');
 
-  if (!allSecs.length) {
-    ctx.fillStyle = '#52526a'; ctx.font = '13px Barlow,sans-serif'; ctx.textAlign = 'center';
-    ctx.fillText('No lap time data available', W / 2, H / 2);
-    return;
-  }
+  // Y scale — clip top/bottom 3% to remove SC/crash outliers
+  const sv = [...allSecs].sort((a,b) => a-b);
+  const minV = sv[Math.floor(sv.length * 0.03)] * 0.9985;
+  const maxV = sv[Math.floor(sv.length * 0.97)] * 1.0015;
 
-  const sorted = [...allSecs].sort((a, b) => a - b);
-  const minV = sorted[Math.floor(sorted.length * 0.02)] * 0.999;
-  const maxV = sorted[Math.floor(sorted.length * 0.98)] * 1.001;
+  const PAD = { t: 28, r: 24, b: 30, l: 72 };
+  const H = 340;
+  canvas.height = H;
+  ctx.fillStyle = '#13131a'; ctx.fillRect(0, 0, W, H);
+  const ph = H - PAD.t - PAD.b, pw = W - PAD.l - PAD.r;
+  const nLaps = _anTotalLaps;
 
-  // Determine max stint lap count across all drivers for X axis
-  let maxStintLap = 1;
-  driverData.forEach(({ stints }) => {
-    stints.forEach(s => { if (s.laps.length > maxStintLap) maxStintLap = s.laps.length; });
-  });
+  // X = race lap number (same axis as driver comparison)
+  const xOf = lap  => PAD.l + ((lap - 1) / (nLaps - 1 || 1)) * pw;
+  const yOf = secs => PAD.t + (maxV - Math.min(Math.max(secs, minV), maxV)) / (maxV - minV) * ph;
 
-  const xOf = stintLapIdx => PAD.l + (stintLapIdx / (maxStintLap - 1 || 1)) * pw;
-  const yOf = v => PAD.t + (maxV - Math.min(Math.max(v, minV), maxV)) / (maxV - minV) * ph;
-
-  // Grid lines
+  // Horizontal grid
   for (let g = 0; g <= 5; g++) {
-    const y = PAD.t + (g / 5) * ph;
-    ctx.strokeStyle = 'rgba(255,255,255,0.06)'; ctx.lineWidth = 1; ctx.setLineDash([]);
+    const y = PAD.t + (g/5) * ph;
+    ctx.strokeStyle = g === 0 || g === 5 ? 'rgba(255,255,255,0.10)' : 'rgba(255,255,255,0.05)';
+    ctx.lineWidth = 1; ctx.setLineDash([]);
     ctx.beginPath(); ctx.moveTo(PAD.l, y); ctx.lineTo(PAD.l + pw, y); ctx.stroke();
-    const val = maxV - (g / 5) * (maxV - minV);
+    const val = maxV - (g/5) * (maxV - minV);
     ctx.fillStyle = '#52526a'; ctx.font = '10px JetBrains Mono,monospace'; ctx.textAlign = 'right';
     ctx.fillText(_fmtLapTime(val), PAD.l - 6, y + 4);
   }
 
-  // X axis gridlines every 5 stint laps
-  const xStep = maxStintLap <= 20 ? 5 : maxStintLap <= 40 ? 10 : 15;
+  // X-axis labels
   ctx.fillStyle = '#52526a'; ctx.font = '10px JetBrains Mono,monospace'; ctx.textAlign = 'center';
-  for (let l = 0; l <= maxStintLap; l += xStep) {
-    const x = xOf(l - 1);
-    ctx.strokeStyle = 'rgba(255,255,255,0.04)'; ctx.lineWidth = 1; ctx.setLineDash([]);
-    ctx.beginPath(); ctx.moveTo(x, PAD.t); ctx.lineTo(x, PAD.t + ph); ctx.stroke();
-    ctx.fillText(l, x, PAD.t + ph + 16);
-  }
-  ctx.fillText('Stint Lap', PAD.l + pw / 2, H - 8);
+  const xStep = Math.max(1, Math.ceil(nLaps / 14));
+  for (let l = 0; l <= nLaps; l += xStep)
+    ctx.fillText(l, xOf(Math.max(1, Math.min(l, nLaps))), H - 6);
+  ctx.textAlign = 'right';
+  ctx.fillText('LAP', PAD.l - 6, H - 6);
 
-  // Per-driver rendering
-  driverData.forEach(({ driverId, stints, d, lineStyle }, dIdx) => {
+  // Draw drivers
+  driverData.forEach(({ did, d, stints, idx }) => {
+    const col = d.color;
+    const isDashed = idx === 1;
+
     stints.forEach((stint, si) => {
-      const color = _AN_STINT_COLORS[si % _AN_STINT_COLORS.length];
-      const pts = stint.laps.map((lp, lapI) => ({
-        x: xOf(lapI),
-        y: yOf(lp.secs),
-        lapNum: lp.lapNum,
-        secs: lp.secs,
-        stintLapIdx: lapI,
+      // Classify laps: clean (in range) vs slow (outlier)
+      const laps = stint.laps.map(lp => ({
+        ...lp, clean: lp.secs >= minV && lp.secs <= maxV,
+        x: xOf(lp.lapNum), y: yOf(lp.secs),
       }));
+      if (!laps.length) return;
 
-      if (pts.length === 0) return;
-
-      // Main line (solid for d1, dashed for d2)
-      ctx.strokeStyle = color;
-      ctx.lineWidth = lineStyle === 'solid' ? 2.5 : 2;
-      ctx.lineJoin = 'round';
-      ctx.setLineDash(lineStyle === 'dashed' ? [6, 4] : []);
-      ctx.beginPath();
-      pts.forEach((p, i) => i === 0 ? ctx.moveTo(p.x, p.y) : ctx.lineTo(p.x, p.y));
-      ctx.stroke();
+      // ── Main line through clean laps, dashed bridge over slow laps ──
+      ctx.strokeStyle = col; ctx.lineWidth = isDashed ? 2 : 2.5;
+      ctx.lineJoin = 'round'; ctx.lineCap = 'round';
+      ctx.setLineDash(isDashed ? [7, 4] : []);
+      let seg = [];
+      const flush = () => {
+        if (seg.length < 2) { seg = []; return; }
+        ctx.beginPath(); seg.forEach((p,i) => i===0 ? ctx.moveTo(p.x,p.y) : ctx.lineTo(p.x,p.y));
+        ctx.stroke(); seg = [];
+      };
+      laps.forEach(lp => { if (lp.clean) seg.push(lp); else flush(); });
+      flush();
       ctx.setLineDash([]);
 
-      // Dots
-      pts.forEach(p => {
-        ctx.fillStyle = color;
-        ctx.beginPath(); ctx.arc(p.x, p.y, 3, 0, Math.PI * 2); ctx.fill();
+      // Dashed bridges over outlier laps
+      ctx.setLineDash([3,6]); ctx.strokeStyle = col + '44'; ctx.lineWidth = 1.5;
+      let lastClean = null;
+      laps.forEach(lp => {
+        if (lp.clean) { lastClean = lp; }
+        else if (lastClean) {
+          // find next clean
+          const next = laps.find(l => l.lapNum > lp.lapNum && l.clean);
+          if (next) { ctx.beginPath(); ctx.moveTo(lastClean.x, lastClean.y); ctx.lineTo(next.x, next.y); ctx.stroke(); }
+        }
+      });
+      ctx.setLineDash([]);
+
+      // Dots on clean laps
+      laps.forEach(lp => {
+        if (!lp.clean) return;
+        ctx.fillStyle = col;
+        ctx.beginPath(); ctx.arc(lp.x, lp.y, isDashed ? 2.5 : 3, 0, Math.PI*2); ctx.fill();
       });
 
-      // Linear regression trend line (dashed, same color)
-      if (pts.length >= 2) {
-        const xs = pts.map((_, i) => i);
-        const ys = stint.laps.map(lp => lp.secs);
+      // ── Linear regression on clean laps ──
+      const cleanLaps = laps.filter(l => l.clean);
+      if (cleanLaps.length >= 3) {
+        const xs = cleanLaps.map((_,i) => i);
+        const ys = cleanLaps.map(l => l.secs);
         const { slope, intercept } = _linReg(xs, ys);
-        const rx0 = xOf(0), ry0 = yOf(intercept);
-        const rx1 = xOf(pts.length - 1), ry1 = yOf(intercept + slope * (pts.length - 1));
 
-        ctx.strokeStyle = color + 'aa';
-        ctx.lineWidth = 1.5;
-        ctx.setLineDash([4, 5]);
-        ctx.beginPath(); ctx.moveTo(rx0, ry0); ctx.lineTo(rx1, ry1); ctx.stroke();
+        // Draw trend line from first to last clean lap
+        const tx0 = cleanLaps[0].x,     ty0 = yOf(intercept);
+        const tx1 = cleanLaps[cleanLaps.length-1].x, ty1 = yOf(intercept + slope*(cleanLaps.length-1));
+        ctx.strokeStyle = col + '88'; ctx.lineWidth = 1.5; ctx.setLineDash([4,5]);
+        ctx.beginPath(); ctx.moveTo(tx0, ty0); ctx.lineTo(tx1, ty1); ctx.stroke();
         ctx.setLineDash([]);
 
-        // Stint label: "Stint N · +X.XXXs/lap"
-        const slopeStr = slope >= 0 ? `+${slope.toFixed(3)}` : slope.toFixed(3);
-        const label = `Stint ${stint.stintNum} · ${slopeStr}s/lap`;
-        const labelX = pts[0].x + 4;
-        const labelY = Math.max(PAD.t + 14, Math.min(PAD.t + ph - 4, pts[0].y - 8));
-        ctx.font = 'bold 9px JetBrains Mono,monospace';
-        ctx.textAlign = 'left';
-        const tw = ctx.measureText(label).width;
-        ctx.fillStyle = color + '28';
-        ctx.fillRect(labelX - 2, labelY - 10, tw + 4, 12);
-        ctx.fillStyle = color;
-        ctx.fillText(label, labelX, labelY);
+        // Label at end of trend line: "S1 +0.050s/lap"
+        const sStr = (slope >= 0 ? '+' : '') + slope.toFixed(3) + 's/lap';
+        const lbl  = `S${si+1} ${sStr}`;
+        const lx   = tx1 + 5;
+        const ly   = Math.max(PAD.t + 10, Math.min(PAD.t + ph - 4, ty1));
+        ctx.font = '9px JetBrains Mono,monospace'; ctx.textAlign = 'left';
+        const tw = ctx.measureText(lbl).width;
+        ctx.fillStyle = '#13131a';
+        ctx.fillRect(lx - 2, ly - 9, tw + 4, 11);
+        ctx.fillStyle = col + 'dd';
+        ctx.fillText(lbl, lx, ly);
       }
 
-      // Hover highlight
-      if (_anDegHover && _anDegHover.driverId === driverId && _anDegHover.stintIdx === si) {
+      // ── Hover highlight ──
+      if (_anDegHover?.did === did && _anDegHover?.stintIdx === si) {
         const li = _anDegHover.lapIdx;
-        if (li !== null && li < pts.length) {
-          const p = pts[li];
-          ctx.fillStyle = '#fff';
-          ctx.beginPath(); ctx.arc(p.x, p.y, 5, 0, Math.PI * 2); ctx.fill();
-          ctx.fillStyle = color;
-          ctx.beginPath(); ctx.arc(p.x, p.y, 3, 0, Math.PI * 2); ctx.fill();
-          _anTip(ctx, p.x, p.y, [
-            { text: `${d.code} — Stint ${stint.stintNum}`, bold: true, color: d.color },
-            { text: `Race Lap ${stint.laps[li].lapNum}  · Stint Lap ${li + 1}`, color: '#ccc' },
-            { text: `Time: ${_fmtLapTime(stint.laps[li].secs)}`, color: '#fff' },
+        const lp = laps[li];
+        if (lp && lp.clean) {
+          ctx.fillStyle = '#fff'; ctx.beginPath(); ctx.arc(lp.x, lp.y, 6, 0, Math.PI*2); ctx.fill();
+          ctx.fillStyle = col;   ctx.beginPath(); ctx.arc(lp.x, lp.y, 3.5, 0, Math.PI*2); ctx.fill();
+          _anTip(ctx, lp.x, lp.y, [
+            { text: `${d.code} — Stint ${si+1}`, bold: true, color: col },
+            { text: `Race Lap ${lp.lapNum} · Stint Lap ${li+1}`, color: '#ccc' },
+            { text: `Time: ${_fmtLapTime(lp.secs)}`, color: '#fff' },
           ], W, H);
         }
       }
     });
 
-    // Driver name badge
-    const align = dIdx === 0 ? 'left' : 'right';
-    const label = d.code + '  ' + d.name;
-    ctx.font = 'bold 11px Barlow Condensed,sans-serif';
-    ctx.textAlign = 'left';
-    const tw = ctx.measureText(label).width;
-    const bx = align === 'left' ? PAD.l + 6 : PAD.l + pw - tw - 6;
-    const by = dIdx === 0 ? PAD.t + 5 : PAD.t + 22;
-    ctx.fillStyle = d.color + '28';
-    ctx.fillRect(bx - 4, by, tw + 8, 15);
-    ctx.fillStyle = d.color;
-    ctx.fillText(label, bx, by + 11);
-  });
+    // Pit stop triangles
+    (_anPitLapSet[did] || new Set()).forEach(lap => {
+      const x = xOf(lap);
+      ctx.fillStyle = col + 'cc';
+      ctx.beginPath();
+      ctx.moveTo(x-5, PAD.t+ph+8); ctx.lineTo(x+5, PAD.t+ph+8); ctx.lineTo(x, PAD.t+ph+2);
+      ctx.closePath(); ctx.fill();
+    });
 
-  // Y axis label
-  ctx.save(); ctx.translate(14, PAD.t + ph / 2); ctx.rotate(-Math.PI / 2);
-  ctx.fillStyle = '#52526a'; ctx.font = '10px JetBrains Mono,monospace'; ctx.textAlign = 'center';
-  ctx.fillText('Lap Time', 0, 0); ctx.restore();
+    // Driver badge
+    const lbl = `${d.code}  ${d.name}`;
+    ctx.font = 'bold 11px Barlow Condensed,sans-serif'; ctx.textAlign = 'left';
+    const tw = ctx.measureText(lbl).width;
+    const bx = idx === 0 ? PAD.l + 6 : PAD.l + pw - tw - 6;
+    ctx.fillStyle = col + '28'; ctx.fillRect(bx-4, PAD.t+5, tw+8, 15);
+    ctx.fillStyle = col; ctx.fillText(lbl, bx, PAD.t+16);
+  });
 }
 
 function _anDegMousemove(e) {
@@ -3723,19 +3728,25 @@ function _anDegMousemove(e) {
 // ══════════════════════════════════════════════════════════════════════════════
 
 async function loadH2HDrivers() {
-  const year = document.getElementById('h2h-year')?.value;
+  let year = parseInt(document.getElementById('h2h-year')?.value);
   if (!year) return;
-  try {
-    const d = await fetchJSON(`${API}/${year}/drivers.json?limit=100`);
-    const drivers = d.MRData?.DriverTable?.Drivers || [];
-    const opts = '<option value="">— select —</option>' +
-      drivers.map(d => {
-        const code = d.code || d.familyName.slice(0,3).toUpperCase();
-        return `<option value="${d.driverId}">${code} — ${d.givenName} ${d.familyName}</option>`;
-      }).join('');
-    document.getElementById('h2h-d1').innerHTML = opts;
-    document.getElementById('h2h-d2').innerHTML = opts;
-  } catch(e) { console.warn('[H2H drivers]', e); }
+  let drivers = [];
+  // Try selected year, fall back one year at a time until we get results
+  for (let y = year; y >= year - 2; y--) {
+    try {
+      const d = await fetchJSON(`${API}/${y}/drivers.json?limit=100`);
+      drivers = d.MRData?.DriverTable?.Drivers || [];
+      if (drivers.length) break;
+    } catch(e) {}
+  }
+  if (!drivers.length) return;
+  const opts = '<option value="">— select driver —</option>' +
+    drivers.map(dr => {
+      const code = dr.code || dr.familyName.slice(0,3).toUpperCase();
+      return `<option value="${dr.driverId}">${code} — ${dr.givenName} ${dr.familyName}</option>`;
+    }).join('');
+  document.getElementById('h2h-d1').innerHTML = opts;
+  document.getElementById('h2h-d2').innerHTML = opts;
 }
 
 async function loadH2H() {
